@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TNT College Football Rankings</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧨</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-boom">🧨</span>
+      <div class="brand-text">
+        <h1><span class="tnt">TNT</span> CFB RANKINGS</h1>
+        <span class="live-pill"><span class="live-dot"></span>LIVE</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="week-picker">
+        <label for="weekSelect">Poll week</label>
+        <select id="weekSelect"></select>
+        <button id="setWeekBtn" class="ghost-btn" title="Make this the week everyone lands on">Set as group week</button>
+      </div>
+      <div class="user-chip" id="userChip">
+        <span id="userName"></span>
+        <button id="switchUserBtn" title="Switch user">↺</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="ballot">My Ballot</button>
+    <button class="tab" data-tab="poll">TNT Ranking</button>
+    <button class="tab" data-tab="ballots">Everyone's Ballots</button>
+  </nav>
+
+  <!-- ============ MY BALLOT ============ -->
+  <main id="tab-ballot" class="tab-panel active">
+    <div class="ballot-layout">
+      <section class="ranking-panel">
+        <div class="panel-head">
+          <h2>My Top 25 <span id="ballotWeekLabel" class="week-label"></span></h2>
+          <div class="ballot-actions">
+            <span id="saveStatus" class="save-status"></span>
+            <button id="copyPrevBtn" class="ghost-btn">Copy previous week</button>
+            <button id="clearBtn" class="ghost-btn danger">Clear</button>
+          </div>
+        </div>
+        <p class="hint">Drag helmets here from the team pool. Drag to reorder, or drag back out to remove. Double-click a helmet in the pool to add it to the next open spot.</p>
+        <ol id="rankingList" class="ranking-list"></ol>
+        <div id="rankingEmptyHint" class="ranking-empty-hint">Drop your #1 team here 🏈</div>
+      </section>
+
+      <section class="pool-panel">
+        <div class="panel-head">
+          <h2>Team Pool <span id="poolCount" class="week-label"></span></h2>
+        </div>
+        <div class="pool-controls">
+          <input type="search" id="poolSearch" placeholder="Search teams...">
+          <div class="conf-chips" id="confChips"></div>
+        </div>
+        <div id="teamPool" class="team-pool"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ TNT POLL ============ -->
+  <main id="tab-poll" class="tab-panel">
+    <section class="poll-panel">
+      <div class="panel-head">
+        <h2>🧨 TNT Ranking <span id="pollWeekLabel" class="week-label"></span></h2>
+        <span id="pollMeta" class="poll-meta"></span>
+      </div>
+      <div id="pollVoters" class="poll-voters"></div>
+      <ol id="pollList" class="poll-list"></ol>
+      <div id="alsoReceiving" class="also-receiving"></div>
+    </section>
+  </main>
+
+  <!-- ============ EVERYONE'S BALLOTS ============ -->
+  <main id="tab-ballots" class="tab-panel">
+    <div id="ballotsGrid" class="ballots-grid"></div>
+  </main>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="loginOverlay" class="overlay hidden">
+    <div class="login-card">
+      <div class="login-boom">🧨🏈</div>
+      <h2>TNT CFB Rankings</h2>
+      <p>Who are you? Your ballots are saved under your name.</p>
+      <form id="loginForm">
+        <input type="text" id="loginName" placeholder="Your name" maxlength="24" autocomplete="off" required>
+        <button type="submit">Let's rank</button>
+      </form>
+      <div id="knownUsers" class="known-users"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/vendor/Sortable.min.js"></script>
+  <script src="/teams.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
