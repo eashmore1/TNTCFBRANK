@@ -21,9 +21,14 @@ live the moment anyone changes their ballot.
 - **TNT Ranking (AP-style scoring)** — a #1 vote is worth 25 points, #25 is
   worth 1. Points are summed across all ballots; first-place votes are shown
   in parentheses, and teams outside the top 25 land in "Also receiving votes."
-- **Playoff bracket** — a live 12-team CFP-style bracket seeded straight off
-  the current TNT Ranking. Top four seeds get first-round byes; seeds 5–12
-  play in the first round. Updates the instant the ranking changes.
+- **Playoff bracket** — a live 12-team CFP-style bracket built off the current
+  TNT Ranking using the real selection rules: five automatic bids to the
+  highest-ranked conference champions (which guarantees a Group of Five team a
+  spot, even if it bumps a higher-ranked at-large team), seven at-large bids,
+  then everyone seeded straight by rank. Top four seeds get first-round byes;
+  seeds 5–12 play in the first round. Since there are no game results, each
+  conference's "champion" is proxied by its highest-ranked team. Updates the
+  instant the ranking changes.
 - **Light / dark mode** — a toggle in the top bar; your choice is remembered.
 - **Live updates** — built on WebSockets (Socket.IO). When a friend saves
   their ballot, your TNT Ranking updates instantly, no refresh needed.

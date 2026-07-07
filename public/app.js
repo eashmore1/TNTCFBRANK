@@ -322,45 +322,83 @@ function renderPoll() {
 
 /* ============ playoff bracket ============ */
 
-// 12-team CFP-style bracket seeded straight off the current TNT ranking.
-// Seeds 1-4 = first-round byes; 5-12 play in round one (5v12, 6v11, 7v10, 8v9),
-// then the standard bracket into quarters, semis, and the title game.
+// Build the 12-team field the way the real CFP does it: 5 automatic bids to
+// the highest-ranked conference champions (guaranteeing a Group of Five team),
+// 7 at-large bids, then everyone seeded straight by TNT rank. We have no game
+// results, so a conference's "champion" is proxied by its highest-ranked team.
+function computePlayoffField(rows) {
+  const ranked = rows.map((r, i) => ({
+    team: TEAM_MAP[r.id],
+    rank: i + 1,
+    conf: TEAM_MAP[r.id].conf,
+  }));
+
+  // Highest-ranked team in each conference = that conference's "champion."
+  // Independents (Notre Dame, UConn) have no conference title, so no auto bid.
+  const champByConf = {};
+  for (const e of ranked) {
+    if (e.conf === 'Ind') continue;
+    if (!champByConf[e.conf]) champByConf[e.conf] = e; // first seen = best rank
+  }
+  const champions = Object.values(champByConf).sort((a, b) => a.rank - b.rank);
+
+  // 5 automatic bids to the 5 highest-ranked conference champions.
+  const auto = champions.slice(0, 5);
+  auto.forEach((e) => (e.champOf = e.conf));
+  const autoIds = new Set(auto.map((e) => e.team.id));
+
+  // At-large bids fill the rest with the next highest-ranked teams.
+  const atLarge = ranked
+    .filter((e) => !autoIds.has(e.team.id))
+    .slice(0, 12 - auto.length);
+
+  // Straight seeding: the whole 12-team field ordered by TNT rank.
+  return [...auto, ...atLarge].sort((a, b) => a.rank - b.rank);
+}
+
+const CONF_LABEL = { 'Big Ten': 'B1G', 'Big 12': 'Big 12', 'Sun Belt': 'SBC' };
+const confBadge = (c) => CONF_LABEL[c] || c;
+
 function renderPlayoff() {
   const bracket = $('#bracket');
   const { rows, voters } = computePoll(weekBallots());
-  const seeds = rows.slice(0, 12).map((r) => TEAM_MAP[r.id]);
 
   $('#playoffWeekLabel').textContent = `· ${viewWeek}`;
   $('#playoffMeta').textContent = voters
     ? `Seeded from ${voters} ballot${voters === 1 ? '' : 's'}`
     : '';
 
-  if (seeds.length < 12) {
-    bracket.innerHTML = `<div class="poll-empty">Need a TNT top 12 to build the bracket.<br>Only ${seeds.length} team${
-      seeds.length === 1 ? '' : 's'
-    } ${seeds.length === 1 ? 'has' : 'have'} received votes for ${viewWeek} so far — get more ballots in! 🏈</div>`;
+  if (rows.length < 12) {
+    bracket.innerHTML = `<div class="poll-empty">Need a TNT top 12 to build the bracket.<br>Only ${rows.length} team${
+      rows.length === 1 ? '' : 's'
+    } ${rows.length === 1 ? 'has' : 'have'} received votes for ${viewWeek} so far — get more ballots in! 🏈</div>`;
     return;
   }
 
-  // seed number (1-based) -> team
-  const s = (n) => seeds[n - 1];
+  const field = computePlayoffField(rows); // 12 entries, index 0 = 1 seed
 
   const slot = (seed, opts = {}) => {
-    if (!seed) {
-      return `<div class="slot tbd"><span class="seed">${
-        opts.seedNum ? opts.seedNum : ''
-      }</span><span class="pending">${opts.label || 'TBD'}</span></div>`;
+    if (!seed || !seed.team) {
+      return `<div class="slot tbd"><span class="seed"></span><span class="pending">${
+        opts.label || 'TBD'
+      }</span></div>`;
     }
     const t = seed.team;
+    const champ = seed.champOf
+      ? `<span class="champ-badge" title="${seed.champOf} champion — automatic bid">🏆 ${confBadge(
+          seed.champOf
+        )}</span>`
+      : '';
+    const bye = opts.bye ? '<span class="bye-chip">BYE</span>' : '';
     return `<div class="slot">
       <span class="seed">${seed.n}</span>
       ${helmetSVG(t, 34)}
       <div class="slot-name"><b>${t.school}</b><span>${t.mascot}</span></div>
-      ${opts.bye ? '<span class="bye-chip">BYE</span>' : ''}
+      <div class="slot-tags">${champ}${bye}</div>
     </div>`;
   };
 
-  const seeded = (n) => ({ n, team: s(n) });
+  const seeded = (n) => ({ n, ...field[n - 1] });
 
   const matchup = (label, a, b, cls = '') =>
     `<div class="matchup ${cls}">
