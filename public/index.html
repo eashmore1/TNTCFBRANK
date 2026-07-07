@@ -49,14 +49,19 @@
             <button id="clearBtn" class="ghost-btn danger">Clear</button>
           </div>
         </div>
-        <p class="hint">Drag helmets here from the team pool. Drag to reorder, or drag back out to remove. Double-click a helmet in the pool to add it to the next open spot.</p>
+        <div class="legend">
+          <span class="legend-step"><span class="legend-key">Tap</span> a helmet to add it</span>
+          <span class="legend-step"><span class="legend-key">⠿ Drag</span> or <span class="legend-key">▲▼</span> to reorder</span>
+          <span class="legend-step"><span class="legend-key">✕</span> to remove</span>
+        </div>
         <ol id="rankingList" class="ranking-list"></ol>
-        <div id="rankingEmptyHint" class="ranking-empty-hint">Drop your #1 team here 🏈</div>
+        <div id="rankingEmptyHint" class="ranking-empty-hint">Tap any helmet below to start your Top 25 🏈</div>
       </section>
 
       <section class="pool-panel">
         <div class="panel-head">
           <h2>Team Pool <span id="poolCount" class="week-label"></span></h2>
+          <span class="pool-hint">Tap to add · drag to place</span>
         </div>
         <div class="pool-controls">
           <input type="search" id="poolSearch" placeholder="Search teams...">
@@ -87,7 +92,7 @@
         <h2>🏆 TNT Playoff <span id="playoffWeekLabel" class="week-label"></span></h2>
         <span id="playoffMeta" class="poll-meta"></span>
       </div>
-      <p class="hint">If the playoff started today, done the real CFP way: five automatic bids to the top conference champions (🏆 gold tag) &#8212; which guarantees a Group of Five team &#8212; plus seven at-large bids, all seeded straight by TNT rank. Seeds 1&#8211;4 get first-round byes; seeds 5&#8211;8 host first-round games on campus.</p>
+      <p class="hint">If the playoff started today, under the 2026 CFP rules: automatic bids (🏆 gold tag) to the four Power-4 champions (ACC, Big 12, Big Ten, SEC) plus the highest-ranked Group of Six team, then at-large bids fill the rest &#8212; all seeded straight by TNT rank. Seeds 1&#8211;4 get first-round byes; seeds 5&#8211;8 host first-round games on campus.</p>
       <div id="bracket" class="bracket"></div>
     </section>
   </main>

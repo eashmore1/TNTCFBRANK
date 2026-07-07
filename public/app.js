@@ -8,6 +8,7 @@ let me = localStorage.getItem('tnt-user') || null;
 let viewWeek = null;
 let activeConf = 'All';
 let lastSavedJSON = null;
+let lastDragEnd = 0; // suppresses the click that fires at the end of a drag
 
 const $ = (sel) => document.querySelector(sel);
 const rankingList = $('#rankingList');
@@ -63,12 +64,17 @@ function scheduleSave() {
 
 function rankedItemHTML(team) {
   return `
+    <span class="grip" title="Drag to reorder" aria-hidden="true">⠿</span>
     ${helmetSVG(team, 46)}
     <div class="ranked-info">
       <div class="school">${team.school}</div>
       <div class="mascot">${team.mascot}</div>
     </div>
-    <button class="remove-btn" title="Remove">✕</button>`;
+    <div class="rank-controls">
+      <button class="move-btn move-up" title="Move up" aria-label="Move up">▲</button>
+      <button class="move-btn move-down" title="Move down" aria-label="Move down">▼</button>
+    </div>
+    <button class="remove-btn" title="Remove from ballot" aria-label="Remove">✕</button>`;
 }
 
 function makeRankedItem(team) {
@@ -85,6 +91,7 @@ function makeTeamCard(team) {
   div.dataset.id = team.id;
   div.dataset.conf = team.conf;
   div.innerHTML = `
+    <span class="add-cue" aria-hidden="true">＋</span>
     ${helmetSVG(team, 66)}
     <div class="school">${team.school}</div>
     <div class="mascot">${team.mascot}</div>`;
@@ -123,7 +130,7 @@ function updateEditorMeta() {
   $('#ballotWeekLabel').textContent = `· ${viewWeek} · ${n}/25`;
   $('#rankingEmptyHint').classList.toggle('hidden', n > 0);
   $('#rankingEmptyHint').textContent =
-    n === 0 ? 'Drop your #1 team here 🏈' : '';
+    n === 0 ? 'Tap any helmet below to start your Top 25 🏈' : '';
   $('#copyPrevBtn').classList.toggle('hidden', WEEKS.indexOf(viewWeek) === 0);
 }
 
@@ -193,7 +200,13 @@ function initSortables() {
     fallbackOnBody: true,
     delay: 120,
     delayOnTouchOnly: true,
-    touchStartThreshold: 4,
+    touchStartThreshold: 5,
+    swapThreshold: 0.7,
+    onStart() { document.body.classList.add('is-dragging'); },
+    onEnd() {
+      document.body.classList.remove('is-dragging');
+      lastDragEnd = Date.now();
+    },
   };
 
   Sortable.create(rankingList, {
@@ -322,10 +335,20 @@ function renderPoll() {
 
 /* ============ playoff bracket ============ */
 
-// Build the 12-team field the way the real CFP does it: 5 automatic bids to
-// the highest-ranked conference champions (guaranteeing a Group of Five team),
-// 7 at-large bids, then everyone seeded straight by TNT rank. We have no game
-// results, so a conference's "champion" is proxied by its highest-ranked team.
+// Build the 12-team field under the 2026 CFP rules:
+//   - 4 automatic bids to the Power 4 champions (ACC, Big 12, Big Ten, SEC),
+//     guaranteed regardless of ranking.
+//   - 1 automatic bid to the single highest-ranked Group of Six team
+//     (American, C-USA, MAC, Mountain West, Pac-12, Sun Belt) — it need not be
+//     a conference champion.
+//   - the rest are at-large bids to the next highest-ranked teams (Notre Dame
+//     qualifies here if it lands in the top 12).
+//   - everyone is seeded straight by TNT rank.
+// We have no game results, so a Power 4 conference's "champion" is proxied by
+// its highest-ranked team.
+const POWER4 = ['ACC', 'Big 12', 'Big Ten', 'SEC'];
+const GROUP6 = new Set(['American', 'C-USA', 'MAC', 'MW', 'Pac-12', 'Sun Belt']);
+
 function computePlayoffField(rows) {
   const ranked = rows.map((r, i) => ({
     team: TEAM_MAP[r.id],
@@ -333,19 +356,29 @@ function computePlayoffField(rows) {
     conf: TEAM_MAP[r.id].conf,
   }));
 
-  // Highest-ranked team in each conference = that conference's "champion."
-  // Independents (Notre Dame, UConn) have no conference title, so no auto bid.
+  const auto = [];
+  const autoIds = new Set();
+  const addAuto = (e, title) => {
+    if (!e || autoIds.has(e.team.id)) return;
+    e.champOf = e.conf;
+    e.autoTitle = title;
+    auto.push(e);
+    autoIds.add(e.team.id);
+  };
+
+  // Highest-ranked team in each Power 4 conference = that conference's champion.
   const champByConf = {};
   for (const e of ranked) {
-    if (e.conf === 'Ind') continue;
     if (!champByConf[e.conf]) champByConf[e.conf] = e; // first seen = best rank
   }
-  const champions = Object.values(champByConf).sort((a, b) => a.rank - b.rank);
+  POWER4.map((c) => champByConf[c])
+    .filter(Boolean)
+    .sort((a, b) => a.rank - b.rank)
+    .forEach((e) => addAuto(e, `${e.conf} champion — automatic bid`));
 
-  // 5 automatic bids to the 5 highest-ranked conference champions.
-  const auto = champions.slice(0, 5);
-  auto.forEach((e) => (e.champOf = e.conf));
-  const autoIds = new Set(auto.map((e) => e.team.id));
+  // The single highest-ranked Group of Six team (ranked is already sorted).
+  const bestG6 = ranked.find((e) => GROUP6.has(e.conf));
+  if (bestG6) addAuto(bestG6, 'Highest-ranked Group of Six team — automatic bid');
 
   // At-large bids fill the rest with the next highest-ranked teams.
   const atLarge = ranked
@@ -385,7 +418,7 @@ function renderPlayoff() {
     }
     const t = seed.team;
     const champ = seed.champOf
-      ? `<span class="champ-badge" title="${seed.champOf} champion — automatic bid">🏆 ${confBadge(
+      ? `<span class="champ-badge" title="${seed.autoTitle}">🏆 ${confBadge(
           seed.champOf
         )}</span>`
       : '';
@@ -619,23 +652,48 @@ $('#switchUserBtn').addEventListener('click', () => {
   $('#loginOverlay').classList.remove('hidden');
 });
 
-// Remove a ranked team via its ✕ button.
-rankingList.addEventListener('click', (e) => {
-  const btn = e.target.closest('.remove-btn');
-  if (!btn) return;
-  const li = btn.closest('.ranked-item');
+// Move a ranked team back to the pool.
+function removeRanked(li) {
   const card = makeTeamCard(TEAM_MAP[li.dataset.id]);
   li.remove();
   teamPool.appendChild(card);
   insertCardAlphabetically(card);
   applyPoolFilters();
   afterEditorChange();
+}
+
+// Handle the ✕ (remove) and ▲/▼ (reorder) buttons on ranked rows.
+rankingList.addEventListener('click', (e) => {
+  const li = e.target.closest('.ranked-item');
+  if (!li) return;
+
+  if (e.target.closest('.remove-btn')) {
+    removeRanked(li);
+    return;
+  }
+  if (e.target.closest('.move-up')) {
+    const prev = li.previousElementSibling;
+    if (prev) {
+      li.parentNode.insertBefore(li, prev);
+      afterEditorChange();
+    }
+    return;
+  }
+  if (e.target.closest('.move-down')) {
+    const next = li.nextElementSibling;
+    if (next) {
+      li.parentNode.insertBefore(next, li);
+      afterEditorChange();
+    }
+  }
 });
 
-// Double-click a pool helmet to add it to the next open spot.
-teamPool.addEventListener('dblclick', (e) => {
+// Tap a pool helmet to add it to the next open spot. The guard ignores the
+// click that browsers fire at the end of a drag so it never double-adds.
+teamPool.addEventListener('click', (e) => {
   const card = e.target.closest('.team-card');
   if (!card) return;
+  if (Date.now() - lastDragEnd < 250) return;
   if (rankingList.children.length >= 25) {
     showToast('Your ballot is full — remove a team first (max 25)');
     return;
