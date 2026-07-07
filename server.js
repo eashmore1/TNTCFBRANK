@@ -20,7 +20,6 @@ const MAX_NAME_LEN = 24;
 
 // state.ballots = { [week]: { [userName]: [teamId, ...] } }
 let state = {
-  currentWeek: 'Preseason',
   ballots: {},
 };
 
@@ -28,7 +27,6 @@ function load() {
   try {
     const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     if (raw && typeof raw === 'object') {
-      if (WEEKS.includes(raw.currentWeek)) state.currentWeek = raw.currentWeek;
       if (raw.ballots && typeof raw.ballots === 'object') state.ballots = raw.ballots;
     }
   } catch (e) {
@@ -86,13 +84,6 @@ io.on('connection', (socket) => {
     } else {
       state.ballots[week][user] = ranking;
     }
-    scheduleSave();
-    io.emit('state', state);
-  });
-
-  socket.on('setCurrentWeek', (week) => {
-    if (!WEEKS.includes(week)) return;
-    state.currentWeek = week;
     scheduleSave();
     io.emit('state', state);
   });

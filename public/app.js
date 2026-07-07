@@ -3,7 +3,7 @@
 const socket = io();
 
 let WEEKS = [];
-let state = null; // { currentWeek, ballots: { [week]: { [user]: [teamId] } } }
+let state = null; // { ballots: { [week]: { [user]: [teamId] } } }
 let me = localStorage.getItem('tnt-user') || null;
 let viewWeek = null;
 let activeConf = 'All';
@@ -533,15 +533,32 @@ function renderWeekSelect() {
   for (const w of WEEKS) {
     const opt = document.createElement('option');
     opt.value = w;
-    opt.textContent = w === state.currentWeek ? `${w} ★` : w;
+    opt.textContent = w;
     if (w === viewWeek) opt.selected = true;
     sel.appendChild(opt);
   }
-  $('#setWeekBtn').classList.toggle('hidden', viewWeek === state.currentWeek);
+}
+
+// The latest week that already has ballots — where the group currently is.
+// Falls back to the first week (Preseason) before anyone has ranked anything.
+function latestActiveWeek() {
+  for (let i = WEEKS.length - 1; i >= 0; i--) {
+    const b = state.ballots[WEEKS[i]];
+    if (b && Object.values(b).some((r) => r.length)) return WEEKS[i];
+  }
+  return WEEKS[0];
+}
+
+// The week to open on: whatever you were last looking at, otherwise the
+// group's current (latest active) week. No button, no manual step.
+function defaultWeek() {
+  const saved = localStorage.getItem('tnt-week');
+  return WEEKS.includes(saved) ? saved : latestActiveWeek();
 }
 
 function switchWeek(week) {
   viewWeek = week;
+  localStorage.setItem('tnt-week', week);
   renderWeekSelect();
   renderEditor();
   renderPoll();
@@ -582,34 +599,28 @@ socket.on('init', ({ weeks, state: s }) => {
   WEEKS = weeks;
   state = s;
   if (firstLoad) {
-    viewWeek = state.currentWeek;
+    viewWeek = defaultWeek();
     renderConfChips();
     initSortables();
     if (me) {
       $('#userName').textContent = me;
-      switchWeek(viewWeek);
     } else {
       renderKnownUsers();
       $('#loginOverlay').classList.remove('hidden');
-      switchWeek(viewWeek);
     }
+    switchWeek(viewWeek);
   } else {
     // Reconnect: refresh everything from server state.
-    switchWeek(WEEKS.includes(viewWeek) ? viewWeek : state.currentWeek);
+    switchWeek(WEEKS.includes(viewWeek) ? viewWeek : defaultWeek());
   }
 });
 
 socket.on('state', (s) => {
-  const prevCurrent = state.currentWeek;
   state = s;
-  renderWeekSelect();
   renderPoll();
   renderPlayoff();
   renderBallotsGrid();
   renderKnownUsers();
-  if (state.currentWeek !== prevCurrent) {
-    showToast(`Group week is now ${state.currentWeek} ★`);
-  }
   // Only rebuild my editor if my saved ballot changed somewhere else
   // (e.g. I edited from my phone) — never clobber an in-progress drag here.
   const mine = JSON.stringify(myBallot());
@@ -647,10 +658,6 @@ document.querySelectorAll('.tab').forEach((tab) => {
 });
 
 $('#weekSelect').addEventListener('change', (e) => switchWeek(e.target.value));
-
-$('#setWeekBtn').addEventListener('click', () => {
-  socket.emit('setCurrentWeek', viewWeek);
-});
 
 $('#poolSearch').addEventListener('input', applyPoolFilters);
 

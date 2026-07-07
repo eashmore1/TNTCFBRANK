@@ -35,8 +35,9 @@ live the moment anyone changes their ballot.
   their ballot, your TNT Ranking updates instantly, no refresh needed.
 - **No passwords** — it's for friends. Pick your name once and your ballots
   save under it automatically (autosave on every change).
-- **Group week** — anyone can star the active week so everyone lands on the
-  same poll when they open the site.
+- **Opens to the right week** — no setup step. The site lands you on the week
+  you were last viewing, or on the latest week anyone has ranked if it's your
+  first visit. Switch weeks anytime with the dropdown.
 
 ## Running it
 
