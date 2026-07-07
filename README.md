@@ -8,10 +8,12 @@ live the moment anyone changes their ballot.
 
 ## Features
 
-- **Drag & drop helmets** — every FBS-relevant team gets an SVG helmet in its
-  school colors with the school + mascot name underneath. Drag from the team
-  pool into your 1–25 list, drag to reorder, drag out (or hit ✕) to remove.
-  Double-click a helmet to add it to the next open spot.
+- **Drag & drop helmets** — all 136 Division I FBS teams get an SVG helmet in
+  their school colors with the school + mascot name underneath. Drag from the
+  team pool into your 1–25 list, drag to reorder, drag out (or hit ✕) to
+  remove. Double-click a helmet to add it to the next open spot. Filter the
+  pool by any FBS conference (SEC, Big Ten, Big 12, ACC, American, C-USA, MAC,
+  Mountain West, Pac-12, Sun Belt, Independents) or search by name.
 - **A poll for every week** — Preseason, Weeks 1–16, and Bowls/Final. Each
   user submits one ballot per week, and there's a TNT Ranking for every week.
   A "Copy previous week" button pre-fills your ballot so you only have to move
@@ -19,6 +21,10 @@ live the moment anyone changes their ballot.
 - **TNT Ranking (AP-style scoring)** — a #1 vote is worth 25 points, #25 is
   worth 1. Points are summed across all ballots; first-place votes are shown
   in parentheses, and teams outside the top 25 land in "Also receiving votes."
+- **Playoff bracket** — a live 12-team CFP-style bracket seeded straight off
+  the current TNT Ranking. Top four seeds get first-round byes; seeds 5–12
+  play in the first round. Updates the instant the ranking changes.
+- **Light / dark mode** — a toggle in the top bar; your choice is remembered.
 - **Live updates** — built on WebSockets (Socket.IO). When a friend saves
   their ballot, your TNT Ranking updates instantly, no refresh needed.
 - **No passwords** — it's for friends. Pick your name once and your ballots

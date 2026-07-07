@@ -230,6 +230,7 @@ function afterEditorChange() {
   updateEditorMeta();
   scheduleSave();
   renderPoll();
+  renderPlayoff();
   renderBallotsGrid();
 }
 
@@ -319,6 +320,91 @@ function renderPoll() {
     : '';
 }
 
+/* ============ playoff bracket ============ */
+
+// 12-team CFP-style bracket seeded straight off the current TNT ranking.
+// Seeds 1-4 = first-round byes; 5-12 play in round one (5v12, 6v11, 7v10, 8v9),
+// then the standard bracket into quarters, semis, and the title game.
+function renderPlayoff() {
+  const bracket = $('#bracket');
+  const { rows, voters } = computePoll(weekBallots());
+  const seeds = rows.slice(0, 12).map((r) => TEAM_MAP[r.id]);
+
+  $('#playoffWeekLabel').textContent = `· ${viewWeek}`;
+  $('#playoffMeta').textContent = voters
+    ? `Seeded from ${voters} ballot${voters === 1 ? '' : 's'}`
+    : '';
+
+  if (seeds.length < 12) {
+    bracket.innerHTML = `<div class="poll-empty">Need a TNT top 12 to build the bracket.<br>Only ${seeds.length} team${
+      seeds.length === 1 ? '' : 's'
+    } ${seeds.length === 1 ? 'has' : 'have'} received votes for ${viewWeek} so far — get more ballots in! 🏈</div>`;
+    return;
+  }
+
+  // seed number (1-based) -> team
+  const s = (n) => seeds[n - 1];
+
+  const slot = (seed, opts = {}) => {
+    if (!seed) {
+      return `<div class="slot tbd"><span class="seed">${
+        opts.seedNum ? opts.seedNum : ''
+      }</span><span class="pending">${opts.label || 'TBD'}</span></div>`;
+    }
+    const t = seed.team;
+    return `<div class="slot">
+      <span class="seed">${seed.n}</span>
+      ${helmetSVG(t, 34)}
+      <div class="slot-name"><b>${t.school}</b><span>${t.mascot}</span></div>
+      ${opts.bye ? '<span class="bye-chip">BYE</span>' : ''}
+    </div>`;
+  };
+
+  const seeded = (n) => ({ n, team: s(n) });
+
+  const matchup = (label, a, b, cls = '') =>
+    `<div class="matchup ${cls}">
+      <div class="matchup-label">${label}</div>
+      ${a}${b}
+    </div>`;
+
+  // Round 1 (5v12, 8v9, 6v11, 7v10) ordered so the bracket flows into the byes.
+  const r1 = [
+    matchup('First Round', slot(seeded(5)), slot(seeded(12))),
+    matchup('First Round', slot(seeded(8)), slot(seeded(9))),
+    matchup('First Round', slot(seeded(6)), slot(seeded(11))),
+    matchup('First Round', slot(seeded(7)), slot(seeded(10))),
+  ];
+
+  // Quarterfinals: top four seeds host the R1 winners.
+  const qf = [
+    matchup('Quarterfinal', slot(seeded(1), { bye: true }), slot(null, { label: 'Winner 5/12' })),
+    matchup('Quarterfinal', slot(seeded(4), { bye: true }), slot(null, { label: 'Winner 8/9' })),
+    matchup('Quarterfinal', slot(seeded(3), { bye: true }), slot(null, { label: 'Winner 6/11' })),
+    matchup('Quarterfinal', slot(seeded(2), { bye: true }), slot(null, { label: 'Winner 7/10' })),
+  ];
+
+  const sf = [
+    matchup('Semifinal', slot(null, { label: 'Winner QF 1' }), slot(null, { label: 'Winner QF 2' })),
+    matchup('Semifinal', slot(null, { label: 'Winner QF 3' }), slot(null, { label: 'Winner QF 4' })),
+  ];
+
+  const final = matchup(
+    'National Championship',
+    slot(null, { label: 'Winner SF 1' }),
+    slot(null, { label: 'Winner SF 2' }),
+    'champ'
+  );
+
+  bracket.innerHTML = `
+    <div class="round"><div class="round-title">First Round</div>${r1.join('')}</div>
+    <div class="round"><div class="round-title">Quarterfinals</div>${qf.join('')}</div>
+    <div class="round"><div class="round-title">Semifinals</div>${sf.join('')}</div>
+    <div class="round"><div class="round-title">Title Game</div>
+      <div class="champ-trophy">🏆</div>${final}
+    </div>`;
+}
+
 /* ============ everyone's ballots ============ */
 
 function renderBallotsGrid() {
@@ -375,6 +461,7 @@ function switchWeek(week) {
   renderWeekSelect();
   renderEditor();
   renderPoll();
+  renderPlayoff();
   renderBallotsGrid();
 }
 
@@ -400,6 +487,7 @@ function loginAs(name) {
   $('#loginOverlay').classList.add('hidden');
   renderEditor();
   renderPoll();
+  renderPlayoff();
   renderBallotsGrid();
 }
 
@@ -432,6 +520,7 @@ socket.on('state', (s) => {
   state = s;
   renderWeekSelect();
   renderPoll();
+  renderPlayoff();
   renderBallotsGrid();
   renderKnownUsers();
   if (state.currentWeek !== prevCurrent) {
@@ -443,6 +532,23 @@ socket.on('state', (s) => {
   if (mine !== lastSavedJSON && mine !== JSON.stringify(editorRanking())) {
     renderEditor();
   }
+});
+
+/* ============ theme ============ */
+
+function applyTheme(theme) {
+  const light = theme === 'light';
+  document.body.classList.toggle('light', light);
+  $('#themeBtn').textContent = light ? '🌙' : '☀️';
+  $('#themeBtn').title = light ? 'Switch to dark mode' : 'Switch to light mode';
+  localStorage.setItem('tnt-theme', theme);
+}
+
+// Apply saved theme immediately so there's no flash of the wrong mode.
+applyTheme(localStorage.getItem('tnt-theme') || 'dark');
+
+$('#themeBtn').addEventListener('click', () => {
+  applyTheme(document.body.classList.contains('light') ? 'dark' : 'light');
 });
 
 /* ============ UI events ============ */

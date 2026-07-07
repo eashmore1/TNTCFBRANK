@@ -14,6 +14,21 @@
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
+body.light {
+  --bg: #eef1f6;
+  --bg-panel: #ffffff;
+  --bg-card: #f3f5f9;
+  --bg-card-hover: #e9edf4;
+  --border: #d7dde8;
+  --text: #18202e;
+  --text-dim: #5c6a80;
+  --tnt: #e85d0f;
+  --tnt-soft: rgba(232, 93, 15, 0.12);
+  --green: #0f9d58;
+  --danger: #d7263d;
+  --shadow: 0 8px 24px rgba(30, 40, 60, 0.1);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { height: 100%; }
@@ -24,7 +39,16 @@ body {
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.25s ease, color 0.25s ease;
 }
+
+body.light {
+  background: radial-gradient(1200px 500px at 70% -10%, #ffffff 0%, var(--bg) 55%);
+}
+body.light .topbar { background: rgba(255, 255, 255, 0.85); }
+body.light .overlay { background: rgba(238, 241, 246, 0.88); }
+body.light .helmet { filter: drop-shadow(0 3px 4px rgba(30, 40, 60, 0.28)); }
+body.light .login-card button[type="submit"] { color: #ffffff; }
 
 /* ---------- Top bar ---------- */
 .topbar {
@@ -92,6 +116,8 @@ body {
 .ghost-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
 .ghost-btn.hidden { display: none; }
 
+.theme-btn { font-size: 15px; padding: 6px 10px; line-height: 1; }
+
 .user-chip {
   display: flex; align-items: center; gap: 8px;
   background: var(--tnt-soft);
@@ -145,7 +171,7 @@ body {
   align-items: start;
 }
 
-.ranking-panel, .pool-panel, .poll-panel {
+.ranking-panel, .pool-panel, .poll-panel, .playoff-panel {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -368,6 +394,95 @@ body {
   padding: 40px 12px;
   font-size: 14px;
   line-height: 1.7;
+}
+
+/* ---------- Playoff bracket ---------- */
+.bracket {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  padding: 6px 2px 18px;
+  align-items: stretch;
+}
+
+.round {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: space-around;
+  flex: 1;
+  min-width: 235px;
+}
+
+.round-title {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.matchup {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+.matchup:hover { border-color: var(--tnt); }
+.matchup.champ { border-color: rgba(255, 209, 102, 0.55); }
+
+.matchup-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 5px 12px 0;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+}
+.slot + .slot { border-top: 1px solid var(--border); }
+
+.slot .seed {
+  min-width: 22px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 900;
+  color: var(--tnt);
+  font-variant-numeric: tabular-nums;
+}
+.slot .helmet { flex-shrink: 0; }
+.slot-name { min-width: 0; line-height: 1.15; }
+.slot-name b { font-size: 13px; display: block; }
+.slot-name span { font-size: 10.5px; color: var(--text-dim); }
+
+.slot.tbd { color: var(--text-dim); }
+.slot.tbd .pending { font-size: 12px; font-weight: 600; font-style: italic; }
+.slot.tbd .seed { color: var(--text-dim); }
+
+.bye-chip {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--green);
+  border: 1px solid var(--green);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.champ-trophy {
+  text-align: center;
+  font-size: 30px;
+  padding: 8px 0 2px;
 }
 
 /* ---------- Everyone's ballots ---------- */

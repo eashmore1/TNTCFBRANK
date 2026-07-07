@@ -22,6 +22,7 @@
         <select id="weekSelect"></select>
         <button id="setWeekBtn" class="ghost-btn" title="Make this the week everyone lands on">Set as group week</button>
       </div>
+      <button id="themeBtn" class="ghost-btn theme-btn" title="Toggle light / dark mode">☀️</button>
       <div class="user-chip" id="userChip">
         <span id="userName"></span>
         <button id="switchUserBtn" title="Switch user">↺</button>
@@ -32,6 +33,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="ballot">My Ballot</button>
     <button class="tab" data-tab="poll">TNT Ranking</button>
+    <button class="tab" data-tab="playoff">Playoff</button>
     <button class="tab" data-tab="ballots">Everyone's Ballots</button>
   </nav>
 
@@ -75,6 +77,18 @@
       <div id="pollVoters" class="poll-voters"></div>
       <ol id="pollList" class="poll-list"></ol>
       <div id="alsoReceiving" class="also-receiving"></div>
+    </section>
+  </main>
+
+  <!-- ============ PLAYOFF ============ -->
+  <main id="tab-playoff" class="tab-panel">
+    <section class="playoff-panel">
+      <div class="panel-head">
+        <h2>🏆 TNT Playoff <span id="playoffWeekLabel" class="week-label"></span></h2>
+        <span id="playoffMeta" class="poll-meta"></span>
+      </div>
+      <p class="hint">If the playoff started today: the TNT top 12, straight-seeded CFP style. Seeds 1&#8211;4 get first-round byes; seeds 5&#8211;8 host first-round games on campus.</p>
+      <div id="bracket" class="bracket"></div>
     </section>
   </main>
 
