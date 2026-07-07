@@ -167,38 +167,45 @@ const CONFS = ['All', 'SEC', 'Big Ten', 'Big 12', 'ACC', 'American', 'C-USA', 'M
 
 // Side-view helmet drawn with the team's colors. The stripe is clipped to the
 // shell so it always follows the dome regardless of color combos.
-function helmetSVG(team, size = 72) {
-  const t = team;
-  const uid = `${t.id}-${size}`;
-  const shellPath =
-    'M 62 7 C 34 7 13 30 13 58 L 13 74 C 13 83 19 88 28 88 L 72 88 ' +
-    'C 79 88 84 84 86 78 L 91 62 L 104 58 C 110 56 112 50 111 44 C 107 22 88 7 62 7 Z';
-  const whiteShell = t.shell.toUpperCase() === '#FFFFFF';
-  const outline = whiteShell ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.28)';
-  const stripe =
-    t.stripe.toUpperCase() === t.shell.toUpperCase()
-      ? ''
-      : `<path d="M 15 48 C 20 22 40 9 62 9 C 87 9 105 24 110 41" fill="none" stroke="${t.stripe}" stroke-width="8" clip-path="url(#shell-${uid})"/>`;
-  const fontSize =
-    t.abbr.length >= 4 ? 13 : t.abbr.length === 3 ? 17 : t.abbr.length === 2 ? 22 : 28;
-  return `
-<svg viewBox="0 0 128 100" width="${size}" height="${Math.round(size * 0.78)}" class="helmet" aria-hidden="true">
-  <defs>
-    <clipPath id="shell-${uid}"><path d="${shellPath}"/></clipPath>
-    <linearGradient id="shine-${uid}" x1="0" y1="0" x2="0" y2="1">
+const HELMET_SHELL_PATH =
+  'M 62 7 C 34 7 13 30 13 58 L 13 74 C 13 83 19 88 28 88 L 72 88 ' +
+  'C 79 88 84 84 86 78 L 91 62 L 104 58 C 110 56 112 50 111 44 C 107 22 88 7 62 7 Z';
+
+// The clip-path and shine gradient are identical for every helmet, so we define
+// them ONCE in the document (injected at startup) and every helmet references
+// them by a fixed id. That keeps ~135 duplicate <defs> blocks out of the DOM,
+// which is the main thing that made first paint lag.
+function helmetDefsSVG() {
+  return `<svg width="0" height="0" class="tnt-helmet-defs" aria-hidden="true" focusable="false"><defs>
+    <clipPath id="tntShell" clipPathUnits="userSpaceOnUse"><path d="${HELMET_SHELL_PATH}"/></clipPath>
+    <linearGradient id="tntShine" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
       <stop offset="35%" stop-color="#fff" stop-opacity="0.06"/>
       <stop offset="100%" stop-color="#000" stop-opacity="0.22"/>
     </linearGradient>
-  </defs>
+  </defs></svg>`;
+}
+
+function helmetSVG(team, size = 72) {
+  const t = team;
+  const outline =
+    t.shell.toUpperCase() === '#FFFFFF' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.28)';
+  const stripe =
+    t.stripe.toUpperCase() === t.shell.toUpperCase()
+      ? ''
+      : `<path d="M 15 48 C 20 22 40 9 62 9 C 87 9 105 24 110 41" fill="none" stroke="${t.stripe}" stroke-width="8" clip-path="url(#tntShell)"/>`;
+  const fontSize =
+    t.abbr.length >= 4 ? 13 : t.abbr.length === 3 ? 17 : t.abbr.length === 2 ? 22 : 28;
+  return `
+<svg viewBox="0 0 128 100" width="${size}" height="${Math.round(size * 0.78)}" class="helmet" aria-hidden="true">
   <g>
     <path d="M 100 62 C 114 58 123 64 122 72 C 121 84 108 91 92 91 L 82 90"
           fill="none" stroke="${t.mask}" stroke-width="5" stroke-linecap="round"/>
     <path d="M 116 63 L 109 89" fill="none" stroke="${t.mask}" stroke-width="4.5" stroke-linecap="round"/>
-    <path d="${shellPath}" fill="${t.shell}" stroke="${outline}" stroke-width="2"/>
+    <path d="${HELMET_SHELL_PATH}" fill="${t.shell}" stroke="${outline}" stroke-width="2"/>
     ${stripe}
-    <path d="${shellPath}" fill="url(#shine-${uid})"/>
-    <path d="${shellPath}" fill="none" stroke="${outline}" stroke-width="2"/>
+    <path d="${HELMET_SHELL_PATH}" fill="url(#tntShine)"/>
+    <path d="${HELMET_SHELL_PATH}" fill="none" stroke="${outline}" stroke-width="2"/>
     <circle cx="58" cy="70" r="4.5" fill="rgba(0,0,0,0.38)"/>
     <path d="M 86 78 C 88 84 92 88 98 89" fill="none" stroke="${t.mask}" stroke-width="4" stroke-linecap="round"/>
     <text x="50" y="56" text-anchor="middle" font-family="'Arial Black', Arial, sans-serif"

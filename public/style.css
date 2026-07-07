@@ -425,6 +425,7 @@ body.is-dragging .add-cue { opacity: 0; }
 .team-card .mascot { font-size: 10.5px; color: var(--text-dim); line-height: 1.2; }
 
 .helmet { display: block; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.35)); }
+.tnt-helmet-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* ---------- Sortable drag states ---------- */
 .drag-ghost { opacity: 0.35; }

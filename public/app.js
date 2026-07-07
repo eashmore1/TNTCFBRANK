@@ -14,6 +14,9 @@ const $ = (sel) => document.querySelector(sel);
 const rankingList = $('#rankingList');
 const teamPool = $('#teamPool');
 
+// Inject the shared helmet clip-path + gradient once, before any helmet renders.
+document.body.insertAdjacentHTML('afterbegin', helmetDefsSVG());
+
 /* ============ helpers ============ */
 
 function myBallot(week = viewWeek) {
@@ -77,25 +80,33 @@ function rankedItemHTML(team) {
     <button class="remove-btn" title="Remove from ballot" aria-label="Remove">✕</button>`;
 }
 
-function makeRankedItem(team) {
-  const li = document.createElement('li');
-  li.className = 'ranked-item';
-  li.dataset.id = team.id;
-  li.innerHTML = rankedItemHTML(team);
-  return li;
+function rankedRowHTML(team) {
+  return `<li class="ranked-item" data-id="${team.id}">${rankedItemHTML(team)}</li>`;
 }
 
-function makeTeamCard(team) {
-  const div = document.createElement('div');
-  div.className = 'team-card';
-  div.dataset.id = team.id;
-  div.dataset.conf = team.conf;
-  div.innerHTML = `
+function teamCardHTML(team) {
+  return `<div class="team-card" data-id="${team.id}" data-conf="${team.conf}">
     <span class="add-cue" aria-hidden="true">＋</span>
     ${helmetSVG(team, 66)}
     <div class="school">${team.school}</div>
-    <div class="mascot">${team.mascot}</div>`;
-  return div;
+    <div class="mascot">${team.mascot}</div>
+  </div>`;
+}
+
+// Build a single DOM node from an HTML string (used by drag/click handlers that
+// move one team at a time; bulk rendering uses innerHTML directly).
+function nodeFromHTML(html) {
+  const tmp = document.createElement('template');
+  tmp.innerHTML = html.trim();
+  return tmp.content.firstChild;
+}
+
+function makeRankedItem(team) {
+  return nodeFromHTML(rankedRowHTML(team));
+}
+
+function makeTeamCard(team) {
+  return nodeFromHTML(teamCardHTML(team));
 }
 
 // Convert a pool card into a ranked row (or vice versa) after a cross-list drag.
@@ -136,17 +147,19 @@ function updateEditorMeta() {
 
 function renderEditor() {
   const ranking = myBallot();
-  rankingList.innerHTML = '';
-  teamPool.innerHTML = '';
 
-  for (const id of ranking) {
-    if (TEAM_MAP[id]) rankingList.appendChild(makeRankedItem(TEAM_MAP[id]));
-  }
+  // One innerHTML write per list instead of ~150 appendChild calls — this is
+  // what stops the pool from stuttering in as helmets are added one by one.
+  rankingList.innerHTML = ranking
+    .filter((id) => TEAM_MAP[id])
+    .map((id) => rankedRowHTML(TEAM_MAP[id]))
+    .join('');
+
   const rankedSet = new Set(ranking);
   const rest = TEAMS.filter((t) => !rankedSet.has(t.id)).sort((a, b) =>
     a.school.localeCompare(b.school)
   );
-  for (const t of rest) teamPool.appendChild(makeTeamCard(t));
+  teamPool.innerHTML = rest.map(teamCardHTML).join('');
 
   lastSavedJSON = JSON.stringify(ranking);
   applyPoolFilters();
