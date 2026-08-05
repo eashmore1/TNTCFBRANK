@@ -30,6 +30,17 @@ live the moment anyone changes their ballot.
   seeds get first-round byes; seeds 5–12 play in the first round. Since there
   are no game results, a conference's "champion" is proxied by its
   highest-ranked team. Updates the instant the ranking changes.
+- **Preseason predictions (locked until kickoff)** — a separate tab where each
+  person makes two calls before the season starts: (1) the two teams they think
+  meet in each of the ten FBS conference championship games plus the winner, and
+  (2) a full 12-team playoff prediction — seed your own field, then tap a team in
+  each game to advance them all the way to a national champion (bye slots,
+  reseeding and downstream games update automatically). **Your picks stay
+  completely private** — nobody can see anyone else's until they all lock the
+  moment the first game kicks off (Aug 29, 2026). Until then a live countdown
+  shows how long is left and who has already locked in (names only, never their
+  picks); once the clock hits zero everyone's predictions are revealed side by
+  side.
 - **Light / dark mode** — a toggle in the top bar; your choice is remembered.
 - **Live updates** — built on WebSockets (Socket.IO). When a friend saves
   their ballot, your TNT Ranking updates instantly, no refresh needed.

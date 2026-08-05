@@ -525,6 +525,451 @@ function renderBallotsGrid() {
   }
 }
 
+/* ============ predictions ============ */
+
+// Conferences that stage a title game, and the 12-team bracket wiring. Each
+// game's two feeders are either a seed (index = seed - 1) or the winner of an
+// earlier game, keyed by name.
+const TITLE_CONFS = ['SEC', 'Big Ten', 'Big 12', 'ACC', 'American', 'C-USA', 'MAC', 'MW', 'Pac-12', 'Sun Belt'];
+const PRED_GAMES = {
+  r1_0: [{ seed: 4 }, { seed: 11 }],
+  r1_1: [{ seed: 7 }, { seed: 8 }],
+  r1_2: [{ seed: 5 }, { seed: 10 }],
+  r1_3: [{ seed: 6 }, { seed: 9 }],
+  qf_0: [{ seed: 0 }, { win: 'r1_0' }],
+  qf_1: [{ seed: 3 }, { win: 'r1_1' }],
+  qf_2: [{ seed: 2 }, { win: 'r1_2' }],
+  qf_3: [{ seed: 1 }, { win: 'r1_3' }],
+  sf_0: [{ win: 'qf_0' }, { win: 'qf_1' }],
+  sf_1: [{ win: 'qf_2' }, { win: 'qf_3' }],
+  final: [{ win: 'sf_0' }, { win: 'sf_1' }],
+};
+const PRED_GAME_ORDER = ['r1_0', 'r1_1', 'r1_2', 'r1_3', 'qf_0', 'qf_1', 'qf_2', 'qf_3', 'sf_0', 'sf_1', 'final'];
+const GAME_LABEL = {
+  r1_0: '5 vs 12', r1_1: '8 vs 9', r1_2: '6 vs 11', r1_3: '7 vs 10',
+  qf_0: 'Quarterfinal', qf_1: 'Quarterfinal', qf_2: 'Quarterfinal', qf_3: 'Quarterfinal',
+  sf_0: 'Semifinal', sf_1: 'Semifinal', final: 'National Championship',
+};
+
+let myPrediction = emptyPrediction();
+let predLocked = false;
+let predLockTs = null;
+let serverOffset = 0; // add to Date.now() to approximate server time
+let allPredictions = null; // populated once locked
+let predSubmitted = []; // names of who's locked in (never their contents)
+let lastSavedPredJSON = null;
+let lockTicker = null;
+
+function emptyPrediction() {
+  return { confChamps: {}, playoff: { seeds: new Array(12).fill(null), winners: {} } };
+}
+
+function normalizePrediction(p) {
+  const out = emptyPrediction();
+  if (!p || typeof p !== 'object') return out;
+  if (p.confChamps && typeof p.confChamps === 'object') {
+    for (const conf of TITLE_CONFS) {
+      const c = p.confChamps[conf];
+      if (c && typeof c === 'object') out.confChamps[conf] = { a: c.a || null, b: c.b || null, winner: c.winner || null };
+    }
+  }
+  if (p.playoff && Array.isArray(p.playoff.seeds)) {
+    for (let i = 0; i < 12; i++) out.playoff.seeds[i] = p.playoff.seeds[i] || null;
+  }
+  if (p.playoff && p.playoff.winners && typeof p.playoff.winners === 'object') {
+    out.playoff.winners = { ...p.playoff.winners };
+  }
+  return out;
+}
+
+// Walk the bracket in dependency order: fill each game's two participants, and
+// drop any advanced winner that's no longer one of its game's participants
+// (so changing an early pick cleanly clears everything downstream of it).
+function resolveBracket(seeds, winners) {
+  const w = { ...winners };
+  const part = {};
+  for (const key of PRED_GAME_ORDER) {
+    const [f1, f2] = PRED_GAMES[key];
+    const side = (f) => {
+      if (f.seed !== undefined) return seeds[f.seed] || null;
+      const pair = part[f.win];
+      const won = w[f.win];
+      return won && pair && (pair[0] === won || pair[1] === won) ? won : null;
+    };
+    const a = side(f1);
+    const b = side(f2);
+    part[key] = [a, b];
+    if (w[key] && w[key] !== a && w[key] !== b) delete w[key];
+  }
+  const fp = part.final;
+  const champ = w.final && fp && (fp[0] === w.final || fp[1] === w.final) ? w.final : null;
+  return { part, winners: w, champ };
+}
+
+let savePredTimer = null;
+function schedulePredSave() {
+  if (predLocked || !me) return;
+  $('#predSave').textContent = 'Saving…';
+  $('#predSave').classList.add('saving');
+  clearTimeout(savePredTimer);
+  savePredTimer = setTimeout(() => {
+    lastSavedPredJSON = JSON.stringify(myPrediction);
+    socket.emit('savePrediction', { user: me, prediction: myPrediction });
+    $('#predSave').textContent = 'Saved ✓';
+    $('#predSave').classList.remove('saving');
+  }, 400);
+}
+
+/* ---- lock bar / countdown ---- */
+
+function serverNow() {
+  return Date.now() + serverOffset;
+}
+
+function renderLockBar() {
+  const bar = $('#predLockBar');
+  if (!predLockTs) { bar.innerHTML = ''; return; }
+  if (predLocked || serverNow() >= predLockTs) {
+    bar.className = 'lock-bar locked';
+    bar.innerHTML = `<span class="lock-ico">🔓</span> Predictions are <b>locked</b> — everyone's picks are revealed below.`;
+    return;
+  }
+  const ms = predLockTs - serverNow();
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const parts = [];
+  if (d) parts.push(`${d}d`);
+  parts.push(`${h}h`, `${m}m`, `${sec}s`);
+  const who = predSubmitted.length
+    ? ` · <span class="lock-who">Locked in: ${predSubmitted.map((u) => (u === me ? `${u} (you)` : u)).join(', ')}</span>`
+    : '';
+  bar.className = 'lock-bar';
+  bar.innerHTML = `<span class="lock-ico">🔒</span> Picks are private & editable until kickoff — they lock in <b class="lock-clock">${parts.join(' ')}</b> (Aug 29).${who}`;
+}
+
+function startLockTicker() {
+  clearInterval(lockTicker);
+  if (predLocked || !predLockTs) return;
+  lockTicker = setInterval(() => {
+    if (serverNow() >= predLockTs && !predLocked) {
+      // Reached kickoff — pull the now-public picks from the server.
+      clearInterval(lockTicker);
+      if (me) socket.emit('identify', { user: me });
+    }
+    renderLockBar();
+  }, 1000);
+}
+
+/* ---- editor ---- */
+
+function confTeams(conf) {
+  return TEAMS.filter((t) => t.conf === conf).sort((a, b) => a.school.localeCompare(b.school));
+}
+
+function ccSelect(conf, slot, chosen, other) {
+  const opts = ['<option value="">— pick team —</option>']
+    .concat(
+      confTeams(conf).map((t) => {
+        const dis = t.id === other ? ' disabled' : '';
+        const sel = t.id === chosen ? ' selected' : '';
+        return `<option value="${t.id}"${sel}${dis}>${t.school}</option>`;
+      })
+    )
+    .join('');
+  return `<select class="cc-team" data-conf="${conf}" data-slot="${slot}">${opts}</select>`;
+}
+
+function ccWinnerBtn(conf, team, isWinner) {
+  return `<button class="cc-win-btn${isWinner ? ' picked' : ''}" data-conf="${conf}" data-team="${team.id}">
+    ${helmetSVG(team, 30)}<span>${team.school}</span>${isWinner ? '<span class="win-tag">🏆</span>' : ''}
+  </button>`;
+}
+
+function renderConfChampEditor() {
+  return `<div class="predict-section">
+    <h3 class="predict-h">🏟️ Conference Championships</h3>
+    <p class="predict-sub">Pick the two teams you think meet in each title game, then tap the one you think wins.</p>
+    <div class="cc-grid">
+      ${TITLE_CONFS.map((conf) => {
+        const c = myPrediction.confChamps[conf] || {};
+        let winnerRow = '<div class="cc-winner empty">Pick both teams to choose a winner</div>';
+        if (c.a && c.b) {
+          winnerRow = `<div class="cc-winner">
+            ${ccWinnerBtn(conf, TEAM_MAP[c.a], c.winner === c.a)}
+            ${ccWinnerBtn(conf, TEAM_MAP[c.b], c.winner === c.b)}
+          </div>`;
+        }
+        return `<div class="cc-card">
+          <div class="cc-conf">${conf}</div>
+          <div class="cc-picks">
+            ${ccSelect(conf, 'a', c.a, c.b)}
+            <span class="cc-vs">vs</span>
+            ${ccSelect(conf, 'b', c.b, c.a)}
+          </div>
+          ${winnerRow}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function seedSelect(i) {
+  const chosen = myPrediction.playoff.seeds[i];
+  const used = new Set(myPrediction.playoff.seeds.filter((id, j) => id && j !== i));
+  const groups = CONFS.filter((c) => c !== 'All')
+    .map((conf) => {
+      const opts = confTeams(conf)
+        .map((t) => {
+          const dis = used.has(t.id) ? ' disabled' : '';
+          const sel = t.id === chosen ? ' selected' : '';
+          return `<option value="${t.id}"${sel}${dis}>${t.school}</option>`;
+        })
+        .join('');
+      return `<optgroup label="${conf}">${opts}</optgroup>`;
+    })
+    .join('');
+  return `<select class="seed-team" data-seed="${i}"><option value="">— pick team —</option>${groups}</select>`;
+}
+
+function predSlot(id, opts = {}) {
+  if (!id || !TEAM_MAP[id]) {
+    return `<div class="slot tbd"><span class="seed">${opts.seed || ''}</span><span class="pending">${opts.label || 'TBD'}</span></div>`;
+  }
+  const t = TEAM_MAP[id];
+  const cls = 'slot' + (opts.pickable ? ' pickable' : '') + (opts.picked ? ' picked' : '');
+  const data = opts.pickable ? ` data-game="${opts.game}" data-team="${id}"` : '';
+  return `<div class="${cls}"${data}>
+    <span class="seed">${opts.seed || ''}</span>
+    ${helmetSVG(t, 30)}
+    <div class="slot-name"><b>${t.school}</b><span>${t.mascot}</span></div>
+    ${opts.bye ? '<div class="slot-tags"><span class="bye-chip">BYE</span></div>' : ''}
+    ${opts.picked ? '<span class="advance-tag">▶</span>' : ''}
+  </div>`;
+}
+
+function seedNoFor(id, seeds) {
+  const idx = seeds.indexOf(id);
+  return idx >= 0 ? idx + 1 : '';
+}
+
+function renderPredBracket(seeds, res, editable) {
+  const { part, winners, champ } = res;
+  const seedNo = (id) => seedNoFor(id, seeds);
+
+  const gameHTML = (key, byePair) => {
+    const [a, b] = part[key];
+    const both = a && b;
+    const label = key.startsWith('r1') ? 'First Round · ' + GAME_LABEL[key]
+      : key.startsWith('qf') ? 'Quarterfinal'
+      : key.startsWith('sf') ? 'Semifinal'
+      : 'National Championship';
+    const feederLabel = (f) => {
+      if (f.seed !== undefined) return `Seed ${f.seed + 1}`;
+      const g = f.win;
+      return 'Winner ' + (g.startsWith('r1') ? GAME_LABEL[g] : g.startsWith('qf') ? 'QF' : 'SF');
+    };
+    const [f1, f2] = PRED_GAMES[key];
+    const slotFor = (id, feeder) => predSlot(id, {
+      seed: seedNo(id),
+      label: feederLabel(feeder),
+      pickable: editable && both,
+      picked: winners[key] === id,
+      game: key,
+    });
+    return `<div class="matchup ${key === 'final' ? 'champ' : ''}">
+      <div class="matchup-label">${label}</div>
+      ${slotFor(a, f1)}${slotFor(b, f2)}
+    </div>`;
+  };
+
+  const byeSlot = (i) => predSlot(seeds[i], { seed: i + 1, bye: true, label: `Seed ${i + 1}` });
+
+  return `
+    <div class="round"><div class="round-title">Byes (1–4)</div>
+      ${byeSlot(0)}${byeSlot(1)}${byeSlot(2)}${byeSlot(3)}
+    </div>
+    <div class="round"><div class="round-title">First Round</div>
+      ${gameHTML('r1_0')}${gameHTML('r1_1')}${gameHTML('r1_2')}${gameHTML('r1_3')}
+    </div>
+    <div class="round"><div class="round-title">Quarterfinals</div>
+      ${gameHTML('qf_0')}${gameHTML('qf_1')}${gameHTML('qf_2')}${gameHTML('qf_3')}
+    </div>
+    <div class="round"><div class="round-title">Semifinals</div>
+      ${gameHTML('sf_0')}${gameHTML('sf_1')}
+    </div>
+    <div class="round"><div class="round-title">Title Game</div>
+      <div class="champ-trophy">🏆</div>
+      ${gameHTML('final')}
+      <div class="champ-pick">${champ ? `${helmetSVG(TEAM_MAP[champ], 40)}<b>${TEAM_MAP[champ].school}</b><span>your champion</span>` : '<span class="pending">Pick your champion</span>'}</div>
+    </div>`;
+}
+
+function renderPlayoffEditor() {
+  const seeds = myPrediction.playoff.seeds;
+  const filled = seeds.filter(Boolean).length;
+  const res = resolveBracket(seeds, myPrediction.playoff.winners);
+  myPrediction.playoff.winners = res.winners; // keep pruned winners in sync
+
+  const seedRows = seeds
+    .map((id, i) => `<div class="seed-row">
+      <span class="seed-no${i < 4 ? ' bye' : ''}">${i + 1}${i < 4 ? '<em>bye</em>' : ''}</span>
+      ${seedSelect(i)}
+    </div>`)
+    .join('');
+
+  const bracket = filled === 12
+    ? `<div class="bracket">${renderPredBracket(seeds, res, true)}</div>`
+    : `<div class="poll-empty">Fill all 12 seeds to build your bracket — ${filled}/12 set.<br>Seeds 1–4 get a first-round bye. 🏈</div>`;
+
+  return `<div class="predict-section">
+    <h3 class="predict-h">🏆 Playoff Prediction</h3>
+    <p class="predict-sub">Seed your 12-team field (1 is the top seed), then tap a team in each game to advance them to the title.</p>
+    <div class="seed-grid">${seedRows}</div>
+    ${bracket}
+  </div>`;
+}
+
+function renderPredEditor() {
+  $('#predEditor').innerHTML = renderConfChampEditor() + renderPlayoffEditor();
+}
+
+/* ---- reveal (locked) ---- */
+
+function revealCard(user, pred) {
+  const p = normalizePrediction(pred);
+  const ccItems = TITLE_CONFS.map((conf) => {
+    const c = p.confChamps[conf] || {};
+    const win = c.winner && TEAM_MAP[c.winner];
+    const inner = win
+      ? `${helmetSVG(win, 26)}<span class="rv-team">${win.school}</span>`
+      : '<span class="rv-none">—</span>';
+    return `<div class="rv-cc"><span class="rv-conf">${conf}</span>${inner}</div>`;
+  }).join('');
+
+  const seeds = p.playoff.seeds;
+  const res = resolveBracket(seeds, p.playoff.winners);
+  const champ = res.champ && TEAM_MAP[res.champ];
+  const finalPair = res.part.final.map((id) => (id && TEAM_MAP[id] ? id : null));
+  const finalists = finalPair
+    .map((id) => (id ? `${helmetSVG(TEAM_MAP[id], 24)}<span>${TEAM_MAP[id].school}</span>` : ''))
+    .filter(Boolean)
+    .join('<span class="rv-vs">vs</span>');
+  const field = seeds
+    .map((id, i) => (id && TEAM_MAP[id] ? `<span class="rv-seed" title="${TEAM_MAP[id].school}"><b>${i + 1}</b>${helmetSVG(TEAM_MAP[id], 22)}</span>` : ''))
+    .join('');
+
+  return `<div class="reveal-card${user === me ? ' mine' : ''}">
+    <h3>${user === me ? `${user} (you)` : user}</h3>
+    <div class="rv-sec">
+      <h4>Conference Champions</h4>
+      <div class="rv-cc-grid">${ccItems}</div>
+    </div>
+    <div class="rv-sec">
+      <h4>Playoff Champion</h4>
+      <div class="rv-champ">${champ ? `${helmetSVG(champ, 44)}<b>${champ.school}</b>` : '<span class="rv-none">No pick</span>'}</div>
+      ${finalists ? `<div class="rv-final"><span class="rv-label">Title game</span>${finalists}</div>` : ''}
+      ${field ? `<div class="rv-field"><span class="rv-label">Field</span><div class="rv-field-row">${field}</div></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderPredReveal() {
+  const wrap = $('#predReveal');
+  const users = Object.keys(allPredictions || {})
+    .filter((u) => allPredictions[u])
+    .sort((a, b) => (a === me ? -1 : b === me ? 1 : a.localeCompare(b)));
+  if (!users.length) {
+    wrap.innerHTML = '<div class="poll-empty">The picks are unlocked, but nobody submitted any preseason predictions.</div>';
+    return;
+  }
+  wrap.innerHTML = `<div class="reveal-grid">${users.map((u) => revealCard(u, allPredictions[u])).join('')}</div>`;
+}
+
+/* ---- top-level ---- */
+
+function renderPredictions() {
+  renderLockBar();
+  const loginEl = $('#predLogin');
+  const editorEl = $('#predEditor');
+  const revealEl = $('#predReveal');
+  const saveEl = $('#predSave');
+
+  if (predLocked) {
+    loginEl.classList.add('hidden');
+    editorEl.innerHTML = '';
+    saveEl.textContent = '';
+    renderPredReveal();
+    return;
+  }
+
+  revealEl.innerHTML = '';
+  if (!me) {
+    loginEl.classList.remove('hidden');
+    editorEl.innerHTML = '';
+    saveEl.textContent = '';
+    return;
+  }
+  loginEl.classList.add('hidden');
+  renderPredEditor();
+}
+
+/* ---- editor events (delegated) ---- */
+
+$('#predEditor').addEventListener('change', (e) => {
+  const ccSel = e.target.closest('.cc-team');
+  if (ccSel) {
+    const conf = ccSel.dataset.conf;
+    const slot = ccSel.dataset.slot;
+    const c = (myPrediction.confChamps[conf] = myPrediction.confChamps[conf] || { a: null, b: null, winner: null });
+    c[slot] = ccSel.value || null;
+    if (c.winner && c.winner !== c.a && c.winner !== c.b) c.winner = null;
+    if (!c.a && !c.b) delete myPrediction.confChamps[conf];
+    schedulePredSave();
+    renderPredEditor();
+    return;
+  }
+  const seedSel = e.target.closest('.seed-team');
+  if (seedSel) {
+    const i = Number(seedSel.dataset.seed);
+    const val = seedSel.value || null;
+    // A team can hold only one seed — clear it from any other slot.
+    if (val) {
+      const prev = myPrediction.playoff.seeds.indexOf(val);
+      if (prev >= 0 && prev !== i) myPrediction.playoff.seeds[prev] = null;
+    }
+    myPrediction.playoff.seeds[i] = val;
+    schedulePredSave();
+    renderPredEditor();
+  }
+});
+
+$('#predEditor').addEventListener('click', (e) => {
+  const ccBtn = e.target.closest('.cc-win-btn');
+  if (ccBtn) {
+    const conf = ccBtn.dataset.conf;
+    const c = myPrediction.confChamps[conf];
+    if (c) {
+      c.winner = c.winner === ccBtn.dataset.team ? null : ccBtn.dataset.team;
+      schedulePredSave();
+      renderPredEditor();
+    }
+    return;
+  }
+  const slot = e.target.closest('.slot.pickable');
+  if (slot) {
+    const game = slot.dataset.game;
+    const team = slot.dataset.team;
+    const w = myPrediction.playoff.winners;
+    w[game] = w[game] === team ? undefined : team;
+    if (w[game] === undefined) delete w[game];
+    schedulePredSave();
+    renderPredEditor();
+  }
+});
+
 /* ============ weeks ============ */
 
 function renderWeekSelect() {
@@ -586,18 +1031,24 @@ function loginAs(name) {
   localStorage.setItem('tnt-user', me);
   $('#userName').textContent = me;
   $('#loginOverlay').classList.add('hidden');
+  lastSavedPredJSON = null;
+  myPrediction = emptyPrediction();
+  socket.emit('identify', { user: me });
   renderEditor();
   renderPoll();
   renderPlayoff();
   renderBallotsGrid();
+  renderPredictions();
 }
 
 /* ============ socket ============ */
 
-socket.on('init', ({ weeks, state: s }) => {
+socket.on('init', ({ weeks, state: s, lockTs, now }) => {
   const firstLoad = state === null;
   WEEKS = weeks;
   state = s;
+  if (typeof lockTs === 'number') predLockTs = lockTs;
+  if (typeof now === 'number') serverOffset = now - Date.now();
   if (firstLoad) {
     viewWeek = defaultWeek();
     renderConfChips();
@@ -613,6 +1064,36 @@ socket.on('init', ({ weeks, state: s }) => {
     // Reconnect: refresh everything from server state.
     switchWeek(WEEKS.includes(viewWeek) ? viewWeek : defaultWeek());
   }
+  if (me) socket.emit('identify', { user: me });
+  startLockTicker();
+  renderPredictions();
+});
+
+// Prediction data: either just mine (private) or everyone's (once locked).
+socket.on('predictions', ({ locked, lockTs, mine, all, submittedUsers }) => {
+  predLocked = !!locked;
+  if (typeof lockTs === 'number') predLockTs = lockTs;
+  if (Array.isArray(submittedUsers)) predSubmitted = submittedUsers;
+  if (locked) {
+    allPredictions = all || {};
+  } else if (mine !== undefined) {
+    const incoming = JSON.stringify(mine ? normalizePrediction(mine) : emptyPrediction());
+    // Don't clobber my in-progress edits with the server's echo of my own save.
+    if (incoming !== lastSavedPredJSON) {
+      myPrediction = mine ? normalizePrediction(mine) : emptyPrediction();
+      lastSavedPredJSON = incoming;
+    }
+  }
+  if (predLocked) clearInterval(lockTicker);
+  else startLockTicker();
+  renderPredictions();
+});
+
+// A light nudge that the roster of who's-locked-in changed (no contents).
+socket.on('predStatus', ({ locked, submittedUsers }) => {
+  if (locked && !predLocked && me) { socket.emit('identify', { user: me }); return; }
+  if (Array.isArray(submittedUsers)) predSubmitted = submittedUsers;
+  renderLockBar();
 });
 
 socket.on('state', (s) => {

@@ -33,6 +33,7 @@
     <button class="tab active" data-tab="ballot">My Ballot</button>
     <button class="tab" data-tab="poll">TNT Ranking</button>
     <button class="tab" data-tab="playoff">Playoff</button>
+    <button class="tab" data-tab="predict">Predictions</button>
     <button class="tab" data-tab="ballots">Everyone's Ballots</button>
   </nav>
 
@@ -93,6 +94,20 @@
       </div>
       <p class="hint">If the playoff started today, under the 2026 CFP rules: automatic bids (🏆 gold tag) to the four Power-4 champions (ACC, Big 12, Big Ten, SEC) plus the highest-ranked Group of Six team, then at-large bids fill the rest &#8212; all seeded straight by TNT rank. Seeds 1&#8211;4 get first-round byes; seeds 5&#8211;8 host first-round games on campus.</p>
       <div id="bracket" class="bracket"></div>
+    </section>
+  </main>
+
+  <!-- ============ PREDICTIONS ============ -->
+  <main id="tab-predict" class="tab-panel">
+    <section class="predict-panel">
+      <div class="panel-head">
+        <h2>🔮 Preseason Predictions</h2>
+        <span id="predSave" class="save-status"></span>
+      </div>
+      <div id="predLockBar" class="lock-bar"></div>
+      <div id="predLogin" class="poll-empty hidden">Pick your name (top-right) to make your predictions.</div>
+      <div id="predEditor" class="predict-editor"></div>
+      <div id="predReveal" class="predict-reveal"></div>
     </section>
   </main>
 
