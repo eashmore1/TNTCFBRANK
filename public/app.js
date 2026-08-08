@@ -256,6 +256,7 @@ function afterEditorChange() {
   updateEditorMeta();
   scheduleSave();
   renderPoll();
+  renderNationalPoll();
   renderPlayoff();
   renderBallotsGrid();
 }
@@ -345,6 +346,105 @@ function renderPoll() {
         .join(', ')}`
     : '';
 }
+
+/* ============ national polls (AP + Coaches) ============ */
+
+let activeNatPoll = localStorage.getItem('tnt-natpoll') || 'coaches';
+if (!NATIONAL_POLLS[activeNatPoll]) activeNatPoll = NATIONAL_POLL_ORDER[0];
+
+// Where each team sits in our own poll for this week, so the national poll
+// can show how far off the TNT ballot is on every team.
+function tntRankMap() {
+  const m = new Map();
+  computePoll(weekBallots()).rows.forEach((r, i) => {
+    if (i < 25) m.set(r.id, i + 1);
+  });
+  return m;
+}
+
+function natDeltaHTML(id, natRank, tnt) {
+  if (!tnt.size) return '';
+  const ours = tnt.get(id);
+  if (!ours) return '<span class="nat-tnt none">TNT&nbsp;—</span>';
+  const diff = natRank - ours; // positive: we're higher on them
+  const dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+  const arrow = diff > 0 ? `▲${diff}` : diff < 0 ? `▼${-diff}` : '=';
+  return `<span class="nat-tnt ${dir}">TNT&nbsp;#${ours} <b>${arrow}</b></span>`;
+}
+
+function renderPollSwitch() {
+  const wrap = $('#pollSwitch');
+  wrap.innerHTML = '';
+  for (const id of NATIONAL_POLL_ORDER) {
+    const poll = NATIONAL_POLLS[id];
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'poll-switch-btn' + (id === activeNatPoll ? ' active' : '');
+    btn.dataset.poll = id;
+    btn.textContent = poll.name;
+    wrap.appendChild(btn);
+  }
+}
+
+function renderNationalPoll() {
+  const poll = NATIONAL_POLLS[activeNatPoll];
+  const data = poll.weeks[viewWeek];
+  const list = $('#natList');
+
+  renderPollSwitch();
+  $('#natWeekLabel').textContent = `· ${viewWeek}`;
+  $('#natBlurb').textContent = poll.blurb;
+  $('#natMeta').textContent = data
+    ? [data.released && `released ${data.released}`, data.voters && `${data.voters} voters`]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+
+  list.innerHTML = '';
+  $('#natOthers').innerHTML = '';
+
+  if (!data) {
+    list.innerHTML = `<div class="poll-empty">The <b>${poll.full}</b> hasn't been released for ${viewWeek} yet.${
+      poll.pending ? `<br>${poll.pending}` : ''
+    }</div>`;
+    return;
+  }
+
+  const tnt = tntRankMap();
+  data.teams.forEach(([id, pts, firsts], i) => {
+    const t = TEAM_MAP[id];
+    if (!t) return;
+    const li = document.createElement('li');
+    li.className = 'poll-row';
+    li.innerHTML = `
+      <span class="rank">${i + 1}</span>
+      ${helmetSVG(t, 52)}
+      <div class="poll-info">
+        <div class="school">${t.school}${firsts ? `<span class="firsts">(${firsts})</span>` : ''}</div>
+        <div class="mascot">${t.mascot}</div>
+      </div>
+      <div class="points">
+        <span class="pts">${pts.toLocaleString()}</span>
+        ${natDeltaHTML(id, i + 1, tnt)}
+      </div>`;
+    list.appendChild(li);
+  });
+
+  const others = data.others || [];
+  $('#natOthers').innerHTML = others.length
+    ? `<b>Others receiving votes:</b> ${others
+        .map(([id, pts]) => `${(TEAM_MAP[id] || { school: id }).school} ${pts}`)
+        .join(', ')}`
+    : '';
+}
+
+$('#pollSwitch').addEventListener('click', (e) => {
+  const btn = e.target.closest('.poll-switch-btn');
+  if (!btn) return;
+  activeNatPoll = btn.dataset.poll;
+  localStorage.setItem('tnt-natpoll', activeNatPoll);
+  renderNationalPoll();
+});
 
 /* ============ playoff bracket ============ */
 
@@ -1007,6 +1107,7 @@ function switchWeek(week) {
   renderWeekSelect();
   renderEditor();
   renderPoll();
+  renderNationalPoll();
   renderPlayoff();
   renderBallotsGrid();
 }
@@ -1036,6 +1137,7 @@ function loginAs(name) {
   socket.emit('identify', { user: me });
   renderEditor();
   renderPoll();
+  renderNationalPoll();
   renderPlayoff();
   renderBallotsGrid();
   renderPredictions();
@@ -1099,6 +1201,7 @@ socket.on('predStatus', ({ locked, submittedUsers }) => {
 socket.on('state', (s) => {
   state = s;
   renderPoll();
+  renderNationalPoll();
   renderPlayoff();
   renderBallotsGrid();
   renderKnownUsers();

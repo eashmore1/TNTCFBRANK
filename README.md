@@ -22,6 +22,14 @@ live the moment anyone changes their ballot.
 - **TNT Ranking (AP-style scoring)** — a #1 vote is worth 25 points, #25 is
   worth 1. Points are summed across all ballots; first-place votes are shown
   in parentheses, and teams outside the top 25 land in "Also receiving votes."
+- **AP / Coaches poll tab** — the real national polls next to ours. Flip
+  between the **AP Top 25** and the **US LBM Coaches Poll** for the week you're
+  viewing; each team shows its points, first-place votes, and how far off the
+  TNT Ranking is on that team (`TNT #3 ▲8` = we have them eight spots higher).
+  The 2026 preseason Coaches Poll is loaded; the AP preseason poll isn't out
+  until Aug 17, so it says so until you add it. These polls are typed in by
+  hand, not scraped — add a week by dropping an entry into
+  `public/polls.js` (the format is documented at the top of the file).
 - **Playoff bracket** — a live 12-team bracket built off the current TNT
   Ranking using the **2026 CFP selection rules**: automatic bids to the four
   Power-4 champions (ACC, Big 12, Big Ten, SEC) plus the single highest-ranked
@@ -41,6 +49,10 @@ live the moment anyone changes their ballot.
   shows how long is left and who has already locked in (names only, never their
   picks); once the clock hits zero everyone's predictions are revealed side by
   side.
+- **Built for phones** — every tab is laid out for a phone screen, not just
+  shrunk down: the tab strip scrolls sideways, the team pool goes three helmets
+  across, both brackets stack round-by-round instead of scrolling sideways, and
+  nothing runs off the edge (checked down to 360px wide).
 - **Light / dark mode** — a toggle in the top bar; your choice is remembered.
 - **Live updates** — built on WebSockets (Socket.IO). When a friend saves
   their ballot, your TNT Ranking updates instantly, no refresh needed.

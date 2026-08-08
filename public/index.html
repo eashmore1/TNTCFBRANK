@@ -32,6 +32,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="ballot">My Ballot</button>
     <button class="tab" data-tab="poll">TNT Ranking</button>
+    <button class="tab" data-tab="polls">AP / Coaches</button>
     <button class="tab" data-tab="playoff">Playoff</button>
     <button class="tab" data-tab="predict">Predictions</button>
     <button class="tab" data-tab="ballots">Everyone's Ballots</button>
@@ -85,6 +86,20 @@
     </section>
   </main>
 
+  <!-- ============ NATIONAL POLLS ============ -->
+  <main id="tab-polls" class="tab-panel">
+    <section class="poll-panel">
+      <div class="panel-head">
+        <h2>📋 National Polls <span id="natWeekLabel" class="week-label"></span></h2>
+        <span id="natMeta" class="poll-meta"></span>
+      </div>
+      <div class="poll-switch" id="pollSwitch"></div>
+      <p id="natBlurb" class="hint"></p>
+      <ol id="natList" class="poll-list"></ol>
+      <div id="natOthers" class="also-receiving"></div>
+    </section>
+  </main>
+
   <!-- ============ PLAYOFF ============ -->
   <main id="tab-playoff" class="tab-panel">
     <section class="playoff-panel">
@@ -135,6 +150,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/vendor/Sortable.min.js"></script>
   <script src="/teams.js"></script>
+  <script src="/polls.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
