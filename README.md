@@ -82,20 +82,49 @@ each file in `api/` becomes a serverless function. Pushing to the connected
 branch deploys it.
 
 **One setup step is required, once.** Serverless functions have no disk, so
-`data/store.json` has nowhere to live — without a database, ballots and
-predictions disappear on every redeploy. Connect a Redis store:
+`data/store.json` has nowhere to live. Worse than losing data on redeploy:
+Vercel runs several function instances, each with its own memory, so without a
+shared database different people can be served different ballots. Pick either
+option below — the app detects whichever one you configure.
 
-1. In the Vercel dashboard, open the project → **Storage** → **Create
-   Database** → pick a Redis store from the Marketplace (Upstash's free tier
-   is plenty for this).
+### Option A — Firebase Realtime Database
+
+1. In the Firebase console, create a project and a **Realtime Database**.
+2. Add `FIREBASE_DB_URL` to the Vercel project's environment variables
+   (e.g. `https://your-project-default-rtdb.firebaseio.com`), plus **one** of:
+   - `FIREBASE_DB_SECRET` — Project Settings → Service Accounts → Database
+     secrets. One value, quickest to set up.
+   - `FIREBASE_SERVICE_ACCOUNT` — the whole service-account JSON, pasted in.
+     This is Google's current supported path; the app signs a JWT with it and
+     exchanges that for a short-lived access token, cached until it expires.
+3. Leave the database's security rules closed (`".read": false`,
+   `".write": false`). Only the server talks to Firebase, and it authenticates,
+   so no public access is needed — see the note below.
+4. Redeploy.
+
+Optional: `FIREBASE_DB_PATH` to store somewhere other than `tnt/store`.
+
+### Option B — Redis
+
+1. Vercel dashboard → project → **Storage** → **Create Database** → a Redis
+   store from the Marketplace (Upstash's free tier is plenty).
 2. Connect it to the project. That injects `KV_REST_API_URL` and
-   `KV_REST_API_TOKEN` automatically — the app picks them up on its own,
-   nothing to configure.
+   `KV_REST_API_TOKEN` automatically — nothing else to configure.
 3. Redeploy.
 
-To confirm it took, check the deployment logs. If Redis isn't wired up the app
-still runs, but logs a loud warning that data is being held in memory and will
-be lost.
+Set one or the other. If both are present Firebase wins, so a half-finished
+migration can't quietly split the data in two. To confirm it took, check the
+deployment logs — with neither configured the app still runs but logs a loud
+warning that data is being held in memory.
+
+> **Why the browser never talks to the database directly.** It would be
+> tempting to use a Firebase client SDK and get real-time push for free. But
+> the predictions rule — nobody sees anyone else's picks until the Aug 29 lock
+> — is enforced server-side in `lib/core.js`, and it only holds because reads
+> go through the server, which sends other people's picks to nobody. Pointing
+> the client straight at Firebase would put every prediction in the browser and
+> leave security rules as the only thing standing between them, which this app
+> can't write meaningfully because it has no per-user authentication.
 
 ### Other hosts
 
@@ -113,9 +142,11 @@ put `data/` on a persistent disk. No Redis needed there.
   actual rules live in `lib/core.js`, which both the serverless functions and
   the local Express server call into, so there's one implementation regardless
   of where it's running.
-- **Storage**: `lib/store.js` picks its backend automatically — Redis when
-  credentials are present (Vercel), a JSON file otherwise (local), memory as a
-  last resort.
+- **Storage**: `lib/store.js` picks its backend automatically — Firebase
+  Realtime Database or Redis when credentials are present (Vercel), a JSON
+  file otherwise (local), memory as a last resort. The whole store is a single
+  JSON document, so each backend is just a get and a put; adding another one
+  means implementing those two functions.
 - **Updates**: `public/net.js` polls and presents the same `on`/`emit`
   interface the app was originally written against, so the app code doesn't
   know or care that there's no socket underneath. Polling is deliberate:
