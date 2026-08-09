@@ -12,14 +12,14 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const stateApi = require('./api/state');
+const syncApi = require('./api/sync');
 const ballotApi = require('./api/ballot');
 const predictionsApi = require('./api/predictions');
 
 app.use(express.json({ limit: '256kb' }));
 
 // Vercel hands the handler a parsed req.query; Express already does too.
-app.get('/api/state', stateApi);
+app.get('/api/sync', syncApi);
 app.post('/api/ballot', ballotApi);
 app.all('/api/predictions', predictionsApi);
 

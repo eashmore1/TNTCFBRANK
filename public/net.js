@@ -15,8 +15,16 @@
    ============================================================ */
 
 (function () {
-  const POLL_MS = 3000;
-  const MAX_BACKOFF_MS = 30000;
+  // Polling is this app's steady-state traffic: every tick is a serverless
+  // invocation and a storage read, per open tab, forever. So the loop is
+  // adaptive — quick while something is actually happening, then backing off
+  // toward IDLE_MS once the page has been sitting still. A tab left open on
+  // the couch all afternoon costs ~2 requests a minute instead of 20.
+  const ACTIVE_MS = 3000; // right after a change, yours or anyone's
+  const IDLE_MS = 15000; // nothing has moved and nobody's touching the page
+  const RAMP = 2; // how fast quiet backs off toward IDLE_MS
+  const MAX_BACKOFF_MS = 60000; // only after outright failures
+  const INTERACT_THROTTLE_MS = 2000;
 
   const handlers = {};
   const client = {
@@ -55,6 +63,12 @@
 
   let failures = 0;
   let timer = null;
+  let idleDelay = ACTIVE_MS; // grows while nothing changes
+
+  // Something happened worth watching closely — go back to a quick cadence.
+  function wakeUp() {
+    idleDelay = ACTIVE_MS;
+  }
 
   async function getJSON(url) {
     const res = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
@@ -75,55 +89,80 @@
 
   /* ---------- polling ---------- */
 
-  async function pullState() {
+  // One request per tick, one storage read behind it, both halves of the
+  // payload out of the same trip.
+  async function pull() {
     const startedAt = Date.now();
-    const data = await getJSON('/api/state');
-    if (lastBallotWriteAt > startedAt) return; // stale; our own write is newer
+    const data = await getJSON(`/api/sync?user=${encodeURIComponent(currentUser || '')}`);
+    let changed = false;
 
-    const ballotsJSON = JSON.stringify(data.state && data.state.ballots);
-    if (lastBallotsJSON === null) {
-      lastBallotsJSON = ballotsJSON;
-      fire('init', data);
-    } else if (ballotsJSON !== lastBallotsJSON) {
-      lastBallotsJSON = ballotsJSON;
-      fire('state', data.state);
+    if (lastBallotWriteAt <= startedAt) {
+      const ballotsJSON = JSON.stringify(data.state && data.state.ballots);
+      if (lastBallotsJSON === null) {
+        lastBallotsJSON = ballotsJSON;
+        fire('init', data);
+        changed = true;
+      } else if (ballotsJSON !== lastBallotsJSON) {
+        lastBallotsJSON = ballotsJSON;
+        fire('state', data.state);
+        changed = true;
+      }
     }
+
+    if (data.predictions && lastPredWriteAt <= startedAt) {
+      const json = JSON.stringify(data.predictions);
+      if (json !== lastPredJSON) {
+        lastPredJSON = json;
+        fire('predictions', data.predictions);
+        changed = true;
+      }
+    }
+
+    // Someone's doing something — stay sharp. Otherwise drift toward idle.
+    if (changed) wakeUp();
+    else idleDelay = Math.min(idleDelay * RAMP, IDLE_MS);
   }
 
-  async function pullPredictions() {
-    const startedAt = Date.now();
-    const data = await getJSON(
-      `/api/predictions?user=${encodeURIComponent(currentUser || '')}`
-    );
-    if (lastPredWriteAt > startedAt) return; // stale; our own write is newer
-
-    const json = JSON.stringify(data);
-    if (json === lastPredJSON) return;
-    lastPredJSON = json;
-    fire('predictions', data);
-  }
+  // A focus event or a save can ask for a poll while one is already running;
+  // queue it rather than running two at once.
+  let inFlight = false;
+  let queued = false;
 
   async function tick() {
+    if (inFlight) {
+      queued = true;
+      return;
+    }
+    inFlight = true;
     try {
-      await pullState();
-      await pullPredictions();
+      await pull();
       failures = 0;
     } catch (err) {
       failures++;
       if (failures === 1) console.warn('[tnt] update failed, will retry:', err.message);
+    } finally {
+      inFlight = false;
+    }
+    if (queued) {
+      queued = false;
+      tick();
+      return;
     }
     schedule();
   }
 
   function schedule() {
     clearTimeout(timer);
-    if (document.hidden) return; // nothing to repaint; resume on focus
-    const delay = failures ? Math.min(POLL_MS * 2 ** failures, MAX_BACKOFF_MS) : POLL_MS;
+    if (document.hidden) return; // nobody's looking; resume on focus
+    const delay = failures
+      ? Math.min(ACTIVE_MS * 2 ** failures, MAX_BACKOFF_MS)
+      : idleDelay;
     timer = setTimeout(tick, delay);
   }
 
   function pollNow() {
     clearTimeout(timer);
+    wakeUp();
     tick();
   }
 
@@ -131,11 +170,29 @@
     if (!document.hidden && started) pollNow();
   });
 
+  // If you're touching the page at all — scrolling the poll, flipping tabs,
+  // dragging a helmet — you're watching, so keep updates quick. Walk away and
+  // it settles back down to IDLE_MS on its own.
+  let lastInteraction = 0;
+  const noteInteraction = () => {
+    const now = Date.now();
+    if (now - lastInteraction < INTERACT_THROTTLE_MS) return;
+    lastInteraction = now;
+    if (!started || document.hidden) return;
+    if (idleDelay === ACTIVE_MS) return; // already quick, leave the timer alone
+    wakeUp();
+    schedule(); // pull the next poll in rather than waiting out a long delay
+  };
+  for (const evt of ['pointerdown', 'keydown', 'scroll', 'touchstart']) {
+    window.addEventListener(evt, noteInteraction, { passive: true });
+  }
+
   /* ---------- the emit side ---------- */
 
   const EMITTERS = {
     async saveBallot(payload) {
       lastBallotWriteAt = Date.now();
+      wakeUp(); // you're mid-session; watch closely for a bit
       try {
         const state = await postJSON('/api/ballot', payload);
         lastBallotsJSON = JSON.stringify(state.ballots);
@@ -161,6 +218,7 @@
 
     async savePrediction(payload) {
       lastPredWriteAt = Date.now();
+      wakeUp();
       try {
         const data = await postJSON('/api/predictions', payload);
         lastPredJSON = JSON.stringify(data);

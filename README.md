@@ -108,18 +108,24 @@ put `data/` on a persistent disk. No Redis needed there.
 - **Client**: vanilla JS + [SortableJS](https://github.com/SortableJS/Sortable)
   for smooth, animated drag & drop. Helmets are inline SVGs generated from
   each team's colors in `public/teams.js` — add or recolor teams there.
-- **Server**: three serverless endpoints (`api/state`, `api/ballot`,
-  `api/predictions`). All the actual rules live in `lib/core.js`, which both
-  the serverless functions and the local Express server call into, so there's
-  one implementation regardless of where it's running.
+- **Server**: three serverless endpoints — `api/sync` (the single read the
+  client polls) plus `api/ballot` and `api/predictions` for writes. All the
+  actual rules live in `lib/core.js`, which both the serverless functions and
+  the local Express server call into, so there's one implementation regardless
+  of where it's running.
 - **Storage**: `lib/store.js` picks its backend automatically — Redis when
   credentials are present (Vercel), a JSON file otherwise (local), memory as a
   last resort.
-- **Updates**: `public/net.js` polls every 3 seconds and presents the same
-  `on`/`emit` interface the app was originally written against, so the app
-  code doesn't know or care that there's no socket underneath. Polling is
-  deliberate: serverless functions can't push to other people's browsers,
-  which is exactly what a shared ranking needs.
+- **Updates**: `public/net.js` polls and presents the same `on`/`emit`
+  interface the app was originally written against, so the app code doesn't
+  know or care that there's no socket underneath. Polling is deliberate:
+  serverless functions can't push to other people's browsers, which is exactly
+  what a shared ranking needs. The loop is adaptive — every 3s while something
+  is happening or you're touching the page, backing off to 15s when the page
+  is just sitting there, and stopping entirely on a hidden tab. Everything the
+  loop needs comes from a single `/api/sync` call so one tick costs one
+  function invocation and one storage read. That matters: polling is the
+  app's steady-state traffic, and a Redis free tier is priced per command.
 - **Predictions privacy** is enforced server-side in `lib/core.js`. Before the
   lock, other people's picks are never sent to your browser at all, so there's
   nothing to find in dev tools.
