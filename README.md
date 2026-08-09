@@ -87,7 +87,24 @@ Vercel runs several function instances, each with its own memory, so without a
 shared database different people can be served different ballots. Pick either
 option below — the app detects whichever one you configure.
 
-### Option A — Firebase Realtime Database
+### Option A — a secret GitHub Gist
+
+Needs no account beyond the GitHub one this repo already lives in, and has
+nothing to pay for or run out of.
+
+1. Go to <https://gist.github.com>, make a **secret** gist with one file named
+   `tnt-store.json` containing `{}`. The gist's ID is the last part of its URL.
+2. Make a token at **GitHub → Settings → Developer settings → Personal access
+   tokens → Tokens (classic)** with only the **`gist`** scope ticked.
+3. Add both to the Vercel project's environment variables as `GIST_ID` and
+   `GIST_TOKEN`.
+4. Redeploy.
+
+Every save writes a gist revision, so its history grows one entry per ballot
+change — harmless, just busy-looking. Optional: `GIST_FILE` to use a filename
+other than `tnt-store.json`.
+
+### Option B — Firebase Realtime Database
 
 1. In the Firebase console, create a project and a **Realtime Database**.
 2. Add `FIREBASE_DB_URL` to the Vercel project's environment variables
@@ -104,18 +121,18 @@ option below — the app detects whichever one you configure.
 
 Optional: `FIREBASE_DB_PATH` to store somewhere other than `tnt/store`.
 
-### Option B — Redis
+### Option C — Redis
 
-1. Vercel dashboard → project → **Storage** → **Create Database** → a Redis
-   store from the Marketplace (Upstash's free tier is plenty).
-2. Connect it to the project. That injects `KV_REST_API_URL` and
-   `KV_REST_API_TOKEN` automatically — nothing else to configure.
-3. Redeploy.
+Either connect one through the Vercel dashboard (**Storage** → **Create
+Database** → Redis), which injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`
+for you, or make a database at <https://upstash.com> directly and paste those
+two values in yourself. Then redeploy. The app can't tell the difference.
 
-Set one or the other. If both are present Firebase wins, so a half-finished
-migration can't quietly split the data in two. To confirm it took, check the
-deployment logs — with neither configured the app still runs but logs a loud
-warning that data is being held in memory.
+Set exactly one of the three. They're checked Firebase → Redis → Gist, so a
+half-finished migration resolves to a single store rather than quietly
+splitting the data across two. To confirm it took, check the deployment logs —
+with none configured the app still runs but logs a loud warning that data is
+being held in memory.
 
 > **Why the browser never talks to the database directly.** It would be
 > tempting to use a Firebase client SDK and get real-time push for free. But
@@ -143,10 +160,12 @@ put `data/` on a persistent disk. No Redis needed there.
   the local Express server call into, so there's one implementation regardless
   of where it's running.
 - **Storage**: `lib/store.js` picks its backend automatically — Firebase
-  Realtime Database or Redis when credentials are present (Vercel), a JSON
-  file otherwise (local), memory as a last resort. The whole store is a single
-  JSON document, so each backend is just a get and a put; adding another one
-  means implementing those two functions.
+  Realtime Database, Redis, or a GitHub gist when credentials are present
+  (Vercel), a JSON file otherwise (local), memory as a last resort. The whole
+  store is a single JSON document, so each backend is just a get and a put;
+  adding another one means implementing those two functions. Reads are cached
+  for two seconds, well under the client's polling interval, so several people
+  watching at once collapse into one database call rather than one each.
 - **Updates**: `public/net.js` polls and presents the same `on`/`emit`
   interface the app was originally written against, so the app code doesn't
   know or care that there's no socket underneath. Polling is deliberate:
