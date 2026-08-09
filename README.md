@@ -54,8 +54,9 @@ live the moment anyone changes their ballot.
   across, both brackets stack round-by-round instead of scrolling sideways, and
   nothing runs off the edge (checked down to 360px wide).
 - **Light / dark mode** — a toggle in the top bar; your choice is remembered.
-- **Live updates** — built on WebSockets (Socket.IO). When a friend saves
-  their ballot, your TNT Ranking updates instantly, no refresh needed.
+- **Live updates** — when a friend saves their ballot, your TNT Ranking
+  updates on its own within a few seconds, no refresh needed. Your own saves
+  show up instantly.
 - **No passwords** — it's for friends. Pick your name once and your ballots
   save under it automatically (autosave on every change).
 - **Opens to the right week** — no setup step. The site lands you on the week
@@ -71,22 +72,54 @@ npm start
 
 Then open <http://localhost:3000>. Set `PORT` to change the port.
 
-All data is stored in `data/store.json` (created automatically), so back that
-file up if you care about your poll history.
+Locally, everything is stored in `data/store.json` (created automatically), so
+back that file up if you care about your poll history.
 
-## Deploying for your friends
+## Deploying to Vercel
 
-Any Node.js host works (Render, Railway, Fly.io, a VPS, a Raspberry Pi...).
-Just make sure:
+The site is built to run on Vercel: `public/` is served as static files and
+each file in `api/` becomes a serverless function. Pushing to the connected
+branch deploys it.
 
-1. `npm install && npm start` runs on the host.
-2. The `data/` directory is on a persistent disk, or your ballots reset on
-   redeploy.
+**One setup step is required, once.** Serverless functions have no disk, so
+`data/store.json` has nowhere to live — without a database, ballots and
+predictions disappear on every redeploy. Connect a Redis store:
+
+1. In the Vercel dashboard, open the project → **Storage** → **Create
+   Database** → pick a Redis store from the Marketplace (Upstash's free tier
+   is plenty for this).
+2. Connect it to the project. That injects `KV_REST_API_URL` and
+   `KV_REST_API_TOKEN` automatically — the app picks them up on its own,
+   nothing to configure.
+3. Redeploy.
+
+To confirm it took, check the deployment logs. If Redis isn't wired up the app
+still runs, but logs a loud warning that data is being held in memory and will
+be lost.
+
+### Other hosts
+
+`npm start` runs the same code against `data/store.json`, so any ordinary
+Node host (Render, Railway, Fly.io, a VPS, a Raspberry Pi) works too — just
+put `data/` on a persistent disk. No Redis needed there.
 
 ## Tech
 
-- **Server**: Node.js + Express + Socket.IO, JSON file persistence — no
-  database to manage.
 - **Client**: vanilla JS + [SortableJS](https://github.com/SortableJS/Sortable)
   for smooth, animated drag & drop. Helmets are inline SVGs generated from
   each team's colors in `public/teams.js` — add or recolor teams there.
+- **Server**: three serverless endpoints (`api/state`, `api/ballot`,
+  `api/predictions`). All the actual rules live in `lib/core.js`, which both
+  the serverless functions and the local Express server call into, so there's
+  one implementation regardless of where it's running.
+- **Storage**: `lib/store.js` picks its backend automatically — Redis when
+  credentials are present (Vercel), a JSON file otherwise (local), memory as a
+  last resort.
+- **Updates**: `public/net.js` polls every 3 seconds and presents the same
+  `on`/`emit` interface the app was originally written against, so the app
+  code doesn't know or care that there's no socket underneath. Polling is
+  deliberate: serverless functions can't push to other people's browsers,
+  which is exactly what a shared ranking needs.
+- **Predictions privacy** is enforced server-side in `lib/core.js`. Before the
+  lock, other people's picks are never sent to your browser at all, so there's
+  nothing to find in dev tools.

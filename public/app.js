@@ -658,6 +658,10 @@ let serverOffset = 0; // add to Date.now() to approximate server time
 let allPredictions = null; // populated once locked
 let predSubmitted = []; // names of who's locked in (never their contents)
 let lastSavedPredJSON = null;
+// True from the moment you touch a pick until the server confirms it back.
+// While it's set, nothing arriving from the server may overwrite what you're
+// in the middle of doing.
+let predDirty = false;
 let lockTicker = null;
 
 function emptyPrediction() {
@@ -709,11 +713,13 @@ function resolveBracket(seeds, winners) {
 let savePredTimer = null;
 function schedulePredSave() {
   if (predLocked || !me) return;
+  predDirty = true;
   $('#predSave').textContent = 'Saving…';
   $('#predSave').classList.add('saving');
   clearTimeout(savePredTimer);
   savePredTimer = setTimeout(() => {
-    lastSavedPredJSON = JSON.stringify(myPrediction);
+    // Normalized, so it compares like-for-like against the server's echo.
+    lastSavedPredJSON = JSON.stringify(normalizePrediction(myPrediction));
     socket.emit('savePrediction', { user: me, prediction: myPrediction });
     $('#predSave').textContent = 'Saved ✓';
     $('#predSave').classList.remove('saving');
@@ -1133,6 +1139,7 @@ function loginAs(name) {
   $('#userName').textContent = me;
   $('#loginOverlay').classList.add('hidden');
   lastSavedPredJSON = null;
+  predDirty = false; // different person — nothing of theirs is pending
   myPrediction = emptyPrediction();
   socket.emit('identify', { user: me });
   renderEditor();
@@ -1180,8 +1187,12 @@ socket.on('predictions', ({ locked, lockTs, mine, all, submittedUsers }) => {
     allPredictions = all || {};
   } else if (mine !== undefined) {
     const incoming = JSON.stringify(mine ? normalizePrediction(mine) : emptyPrediction());
-    // Don't clobber my in-progress edits with the server's echo of my own save.
-    if (incoming !== lastSavedPredJSON) {
+    if (incoming === lastSavedPredJSON) {
+      // The server now holds exactly what I last sent — my edits are safe.
+      predDirty = false;
+    } else if (!predDirty) {
+      // Nothing pending locally, so adopt whatever the server has (a reload,
+      // or me editing from my phone).
       myPrediction = mine ? normalizePrediction(mine) : emptyPrediction();
       lastSavedPredJSON = incoming;
     }

@@ -2,3 +2,6 @@ node_modules/
 data/
 npm-debug.log
 .DS_Store
+
+# built by npm run vercel-build
+public/vendor/
