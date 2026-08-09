@@ -61,6 +61,19 @@
   let lastBallotWriteAt = 0;
   let lastPredWriteAt = 0;
 
+  // Every write bumps the store's revision, so anything that comes back with
+  // a lower one is a view of the past and gets dropped on the floor. Belt and
+  // braces against responses arriving out of order, a retry landing late, or
+  // an instance answering from behind.
+  let lastRev = -1;
+
+  function staleRev(rev) {
+    if (!Number.isFinite(rev)) return false; // no rev to judge by; let it through
+    if (rev < lastRev) return true;
+    lastRev = rev;
+    return false;
+  }
+
   let failures = 0;
   let timer = null;
   let idleDelay = ACTIVE_MS; // grows while nothing changes
@@ -94,6 +107,7 @@
   async function pull() {
     const startedAt = Date.now();
     const data = await getJSON(`/api/sync?user=${encodeURIComponent(currentUser || '')}`);
+    if (staleRev(data.rev)) return; // older than something we've already applied
     let changed = false;
 
     if (lastBallotWriteAt <= startedAt) {
@@ -195,6 +209,7 @@
       wakeUp(); // you're mid-session; watch closely for a bit
       try {
         const state = await postJSON('/api/ballot', payload);
+        staleRev(state.rev); // our own write — always the newest, so record it
         lastBallotsJSON = JSON.stringify(state.ballots);
         fire('state', state);
       } catch (err) {
@@ -221,6 +236,7 @@
       wakeUp();
       try {
         const data = await postJSON('/api/predictions', payload);
+        staleRev(data.rev);
         lastPredJSON = JSON.stringify(data);
         fire('predictions', data);
       } catch (err) {
