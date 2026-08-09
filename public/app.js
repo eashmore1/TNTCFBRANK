@@ -8,6 +8,11 @@ let me = localStorage.getItem('tnt-user') || null;
 let viewWeek = null;
 let activeConf = 'All';
 let lastSavedJSON = null;
+// True from the moment you change your ballot until the server confirms it
+// back. While it's set, nothing arriving from the server may rebuild the
+// editor — otherwise a poll landing mid-save repaints your list from the
+// server's older copy and the teams you just ranked vanish off the screen.
+let ballotDirty = false;
 let lastDragEnd = 0; // suppresses the click that fires at the end of a drag
 
 const $ = (sel) => document.querySelector(sel);
@@ -51,6 +56,7 @@ function showToast(msg, ms = 2600) {
 
 let saveTimer = null;
 function scheduleSave() {
+  ballotDirty = true;
   $('#saveStatus').textContent = 'Saving…';
   $('#saveStatus').classList.add('saving');
   clearTimeout(saveTimer);
@@ -1110,6 +1116,9 @@ function defaultWeek() {
 function switchWeek(week) {
   viewWeek = week;
   localStorage.setItem('tnt-week', week);
+  // A different week is a different ballot; nothing is pending for this one.
+  ballotDirty = false;
+  lastSavedJSON = null;
   renderWeekSelect();
   renderEditor();
   renderPoll();
@@ -1138,8 +1147,10 @@ function loginAs(name) {
   localStorage.setItem('tnt-user', me);
   $('#userName').textContent = me;
   $('#loginOverlay').classList.add('hidden');
+  lastSavedJSON = null;
+  ballotDirty = false; // different person — nothing of theirs is pending
   lastSavedPredJSON = null;
-  predDirty = false; // different person — nothing of theirs is pending
+  predDirty = false;
   myPrediction = emptyPrediction();
   socket.emit('identify', { user: me });
   renderEditor();
@@ -1187,8 +1198,14 @@ socket.on('predictions', ({ locked, lockTs, mine, all, submittedUsers }) => {
     allPredictions = all || {};
   } else if (mine !== undefined) {
     const incoming = JSON.stringify(mine ? normalizePrediction(mine) : emptyPrediction());
-    if (incoming === lastSavedPredJSON) {
-      // The server now holds exactly what I last sent — my edits are safe.
+    if (
+      incoming === lastSavedPredJSON &&
+      incoming === JSON.stringify(normalizePrediction(myPrediction))
+    ) {
+      // The server, my last save and my working copy all agree — nothing
+      // pending. (Checking the working copy too matters: without it, an echo
+      // of an earlier save would clear the flag while a newer edit was still
+      // sitting in the debounce, and the next poll would undo it.)
       predDirty = false;
     } else if (!predDirty) {
       // Nothing pending locally, so adopt whatever the server has (a reload,
@@ -1216,10 +1233,14 @@ socket.on('state', (s) => {
   renderPlayoff();
   renderBallotsGrid();
   renderKnownUsers();
-  // Only rebuild my editor if my saved ballot changed somewhere else
-  // (e.g. I edited from my phone) — never clobber an in-progress drag here.
   const mine = JSON.stringify(myBallot());
-  if (mine !== lastSavedJSON && mine !== JSON.stringify(editorRanking())) {
+  const onScreen = JSON.stringify(editorRanking());
+  if (mine === lastSavedJSON && mine === onScreen) {
+    // The server, my last save and the screen all agree — nothing pending.
+    ballotDirty = false;
+  } else if (!ballotDirty && mine !== onScreen) {
+    // Nothing of mine is in flight, so this is a real change from elsewhere
+    // (I edited from my phone, say) and the editor should adopt it.
     renderEditor();
   }
 });
