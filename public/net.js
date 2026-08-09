@@ -89,6 +89,21 @@
     return res.json();
   }
 
+  // A save is somebody's ballot, so a flaky connection or a cold function
+  // shouldn't cost them it. Three quick attempts before we admit defeat.
+  async function retry(fn, attempts = 3) {
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err) {
+        lastErr = err;
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 400 * 2 ** i));
+      }
+    }
+    throw lastErr;
+  }
+
   async function postJSON(url, body) {
     const res = await fetch(url, {
       method: 'POST',
@@ -208,12 +223,15 @@
       lastBallotWriteAt = Date.now();
       wakeUp(); // you're mid-session; watch closely for a bit
       try {
-        const state = await postJSON('/api/ballot', payload);
+        const state = await retry(() => postJSON('/api/ballot', payload));
+        lastBallotWriteAt = Date.now(); // retries may have taken a while
         staleRev(state.rev); // our own write — always the newest, so record it
         lastBallotsJSON = JSON.stringify(state.ballots);
         fire('state', state);
+        fire('saveResult', { what: 'ballot', ok: true });
       } catch (err) {
         console.error('[tnt] ballot save failed:', err.message);
+        fire('saveResult', { what: 'ballot', ok: false, error: err.message });
       }
     },
 
@@ -235,12 +253,15 @@
       lastPredWriteAt = Date.now();
       wakeUp();
       try {
-        const data = await postJSON('/api/predictions', payload);
+        const data = await retry(() => postJSON('/api/predictions', payload));
+        lastPredWriteAt = Date.now();
         staleRev(data.rev);
         lastPredJSON = JSON.stringify(data);
         fire('predictions', data);
+        fire('saveResult', { what: 'prediction', ok: true });
       } catch (err) {
         console.error('[tnt] prediction save failed:', err.message);
+        fire('saveResult', { what: 'prediction', ok: false, error: err.message });
       }
     },
   };

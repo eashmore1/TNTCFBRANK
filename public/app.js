@@ -63,9 +63,10 @@ function scheduleSave() {
   saveTimer = setTimeout(() => {
     const ranking = editorRanking();
     lastSavedJSON = JSON.stringify(ranking);
+    // Says "Saving…" until the server actually confirms it. Claiming "Saved"
+    // the moment we hand it to the network is how a lost ballot looks like a
+    // successful one.
     socket.emit('saveBallot', { week: viewWeek, user: me, ranking });
-    $('#saveStatus').textContent = 'Saved ✓';
-    $('#saveStatus').classList.remove('saving');
   }, 350);
 }
 
@@ -727,8 +728,6 @@ function schedulePredSave() {
     // Normalized, so it compares like-for-like against the server's echo.
     lastSavedPredJSON = JSON.stringify(normalizePrediction(myPrediction));
     socket.emit('savePrediction', { user: me, prediction: myPrediction });
-    $('#predSave').textContent = 'Saved ✓';
-    $('#predSave').classList.remove('saving');
   }, 400);
 }
 
@@ -1224,6 +1223,24 @@ socket.on('predStatus', ({ locked, submittedUsers }) => {
   if (locked && !predLocked && me) { socket.emit('identify', { user: me }); return; }
   if (Array.isArray(submittedUsers)) predSubmitted = submittedUsers;
   renderLockBar();
+});
+
+// The transport tells us whether a save actually reached the server, so the
+// status line can stop guessing.
+socket.on('saveResult', ({ what, ok }) => {
+  const el = what === 'prediction' ? $('#predSave') : $('#saveStatus');
+  if (!el) return;
+  el.classList.toggle('saving', !ok);
+  el.classList.toggle('failed', !ok);
+  el.textContent = ok ? 'Saved ✓' : 'Not saved ✕';
+  if (!ok) {
+    showToast(
+      what === 'prediction'
+        ? "Couldn't save your predictions — check your connection."
+        : "Couldn't save your ballot — check your connection. Don't close this tab.",
+      6000
+    );
+  }
 });
 
 socket.on('state', (s) => {

@@ -128,6 +128,12 @@ Database** → Redis), which injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`
 for you, or make a database at <https://upstash.com> directly and paste those
 two values in yourself. Then redeploy. The app can't tell the difference.
 
+**If something doesn't save, open `/api/health` on the deployed site.** It
+reports which backend is actually in use, whether it can be read, and the
+current revision — no credentials, just the diagnosis. `backend: "memory"`
+means none of the variables below are reaching the app. Add `?write=1` to
+round-trip a write and prove it survives.
+
 Set exactly one of the three. They're checked Firebase → Redis → Gist, so a
 half-finished migration resolves to a single store rather than quietly
 splitting the data across two. To confirm it took, check the deployment logs —
