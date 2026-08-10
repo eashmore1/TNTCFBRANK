@@ -38,12 +38,36 @@ function editorRanking() {
   return [...rankingList.children].map((li) => li.dataset.id);
 }
 
+// Only the teams we can actually draw. A stored id that isn't in teams.js (a
+// school renamed between deploys, say) would otherwise leave the saved ballot
+// and the on-screen list permanently disagreeing, and the reconcile below
+// would rebuild the editor on every single poll trying to fix it.
+function myBallotOnScreen(week = viewWeek) {
+  return myBallot(week).filter((id) => TEAM_MAP[id]);
+}
+
+// Mid-drag the list is in a temporary state that matches nothing saved.
+// Rebuilding it now yanks the row out from under the finger holding it and the
+// move is silently undone — so we leave it alone and reconcile after the drop.
+function editorBusy() {
+  return document.body.classList.contains('is-dragging');
+}
+
 function allKnownUsers() {
   const users = new Set();
   for (const week of Object.keys(state.ballots)) {
     for (const u of Object.keys(state.ballots[week])) users.add(u);
   }
   return [...users];
+}
+
+// Names are the one thing on this page that people type themselves, and they
+// get dropped into innerHTML on everyone else's screen. Without this, picking
+// the name `<img src=x onerror=...>` runs whatever you like in your friends'
+// browsers. Everything else rendered here comes from teams.js or polls.js.
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 }
 
 function showToast(msg, ms = 2600) {
@@ -209,7 +233,7 @@ function renderWeekLockBar() {
 }
 
 function renderEditor() {
-  const ranking = myBallot();
+  const ranking = myBallotOnScreen();
   const locked = isWeekLocked();
 
   document.body.classList.toggle('week-locked', locked);
@@ -217,10 +241,9 @@ function renderEditor() {
 
   // One innerHTML write per list instead of ~150 appendChild calls — this is
   // what stops the pool from stuttering in as helmets are added one by one.
-  const teams = ranking.filter((id) => TEAM_MAP[id]);
   rankingList.innerHTML = locked
-    ? teams.map((id, i) => lockedRowHTML(TEAM_MAP[id], i)).join('')
-    : teams.map((id) => rankedRowHTML(TEAM_MAP[id])).join('');
+    ? ranking.map((id, i) => lockedRowHTML(TEAM_MAP[id], i)).join('')
+    : ranking.map((id) => rankedRowHTML(TEAM_MAP[id])).join('');
 
   // Nothing can be added to a closed week, so the pool would only be a tease.
   $('.pool-panel').classList.toggle('hidden', locked);
@@ -697,7 +720,7 @@ function renderBallotsGrid() {
       })
       .join('');
     card.innerHTML = `
-      <h3>${user === me ? `${user} (you)` : user}
+      <h3>${esc(user)}${user === me ? ' (you)' : ''}
         <span class="count">${ballots[user].length}/25</span></h3>
       <ol>${items}</ol>`;
     grid.appendChild(card);
@@ -836,7 +859,7 @@ function renderLockBar() {
   if (d) parts.push(`${d}d`);
   parts.push(`${h}h`, `${m}m`, `${sec}s`);
   const who = predSubmitted.length
-    ? ` · <span class="lock-who">Locked in: ${predSubmitted.map((u) => (u === me ? `${u} (you)` : u)).join(', ')}</span>`
+    ? ` · <span class="lock-who">Locked in: ${predSubmitted.map((u) => esc(u) + (u === me ? ' (you)' : '')).join(', ')}</span>`
     : '';
   bar.className = 'lock-bar';
   bar.innerHTML = `<span class="lock-ico">🔒</span> Picks are private & editable until kickoff — they lock in <b class="lock-clock">${parts.join(' ')}</b> (Aug 29).${who}`;
@@ -1114,7 +1137,7 @@ function revealCard(user, pred) {
   const heisTeam = heis && heis.team && TEAM_MAP[heis.team];
 
   return `<div class="reveal-card${user === me ? ' mine' : ''}">
-    <h3>${user === me ? `${user} (you)` : user}</h3>
+    <h3>${esc(user)}${user === me ? ' (you)' : ''}</h3>
     <div class="rv-sec">
       <h4>Heisman</h4>
       <div class="rv-champ">${
@@ -1391,15 +1414,27 @@ socket.on('predStatus', ({ locked, submittedUsers }) => {
 socket.on('saveResult', ({ what, ok, reason }) => {
   const el = what === 'prediction' ? $('#predSave') : $('#saveStatus');
   if (!el) return;
-  el.classList.toggle('saving', !ok);
+  el.classList.remove('saving');
   el.classList.toggle('failed', !ok);
-  el.textContent = ok ? 'Saved ✓' : reason === 'week-locked' ? 'Closed 🔒' : 'Not saved ✕';
+  const shut = reason === 'week-locked' || reason === 'locked';
+  el.textContent = ok ? 'Saved ✓' : shut ? 'Closed 🔒' : 'Not saved ✕';
   if (ok) return;
 
   if (reason === 'week-locked') {
     // The deadline passed while this tab was open. Repaint as final.
     showToast(`${viewWeek} closed — that ballot is final now.`, 6000);
+    renderWeekSelect();
     renderEditor();
+    return;
+  }
+  if (reason === 'locked') {
+    // Kickoff arrived mid-edit; predictions are public now.
+    showToast("Kickoff — predictions are locked and everyone's picks are in.", 6000);
+    if (me) socket.emit('identify', { user: me });
+    return;
+  }
+  if (reason === 'no-user') {
+    showToast('Pick your name first (top right) — nothing was saved.', 6000);
     return;
   }
   showToast(
@@ -1417,12 +1452,12 @@ socket.on('state', (s) => {
   renderPlayoff();
   renderBallotsGrid();
   renderKnownUsers();
-  const mine = JSON.stringify(myBallot());
+  const mine = JSON.stringify(myBallotOnScreen());
   const onScreen = JSON.stringify(editorRanking());
   if (mine === lastSavedJSON && mine === onScreen) {
     // The server, my last save and the screen all agree — nothing pending.
     ballotDirty = false;
-  } else if (!ballotDirty && mine !== onScreen) {
+  } else if (!ballotDirty && !editorBusy() && mine !== onScreen) {
     // Nothing of mine is in flight, so this is a real change from elsewhere
     // (I edited from my phone, say) and the editor should adopt it.
     renderEditor();

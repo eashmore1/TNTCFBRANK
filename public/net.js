@@ -125,7 +125,9 @@
     if (staleRev(data.rev)) return; // older than something we've already applied
     let changed = false;
 
-    if (lastBallotWriteAt <= startedAt) {
+    // Strictly before: a write in the same millisecond the poll started can't
+    // be ordered against it, so treat it as possibly-stale and leave it alone.
+    if (lastBallotWriteAt < startedAt) {
       const ballotsJSON = JSON.stringify(data.state && data.state.ballots);
       if (lastBallotsJSON === null) {
         lastBallotsJSON = ballotsJSON;
@@ -138,7 +140,7 @@
       }
     }
 
-    if (data.predictions && lastPredWriteAt <= startedAt) {
+    if (data.predictions && lastPredWriteAt < startedAt) {
       const json = JSON.stringify(data.predictions);
       if (json !== lastPredJSON) {
         lastPredJSON = json;
@@ -262,7 +264,11 @@
         staleRev(data.rev);
         lastPredJSON = JSON.stringify(data);
         fire('predictions', data);
-        fire('saveResult', { what: 'prediction', ok: true });
+        fire('saveResult', {
+          what: 'prediction',
+          ok: !data.rejected,
+          reason: data.rejected,
+        });
       } catch (err) {
         console.error('[tnt] prediction save failed:', err.message);
         fire('saveResult', { what: 'prediction', ok: false, error: err.message });

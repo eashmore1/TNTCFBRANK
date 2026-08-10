@@ -177,9 +177,15 @@ put `data/` on a persistent disk. No Redis needed there.
   Realtime Database, Redis, or a GitHub gist when credentials are present
   (Vercel), a JSON file otherwise (local), memory as a last resort. The whole
   store is a single JSON document, so each backend is just a get and a put;
-  adding another one means implementing those two functions. Reads are cached
-  for two seconds, well under the client's polling interval, so several people
-  watching at once collapse into one database call rather than one each.
+  adding another one means implementing those two functions. Saving is a
+  read-modify-write, so writes are **conditional**: each one only lands if the
+  document is still what was read, and `store.update()` re-reads and retries
+  when it isn't. Without that, two people saving in the same moment would each
+  write back a document based on what they read before the other's save, and
+  the later write would silently erase the earlier ballot — while telling both
+  of them "Saved". Redis does the check with a small `EVAL` script and Firebase
+  with an ETag; gists have no conditional update, so there they're only
+  serialised within one instance.
 - **Updates**: `public/net.js` polls and presents the same `on`/`emit`
   interface the app was originally written against, so the app code doesn't
   know or care that there's no socket underneath. Polling is deliberate:
