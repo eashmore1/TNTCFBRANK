@@ -392,6 +392,111 @@ function computePoll(ballots) {
   return { rows, voters };
 }
 
+/* ---- week-to-week movement ---- */
+
+// Compare against the most recent earlier week anyone actually voted in, not
+// simply the week before: if nobody got a Week 5 ballot in, Week 6 should still
+// be measured against Week 4 rather than against nothing.
+function prevPolledWeek(week = viewWeek) {
+  for (let i = WEEKS.indexOf(week) - 1; i >= 0; i--) {
+    const b = state.ballots[WEEKS[i]];
+    if (b && Object.values(b).some((r) => r.length)) return WEEKS[i];
+  }
+  return null;
+}
+
+// Where each team sat in the top 25 that week. Teams outside it have no rank,
+// which is what makes them "new" when they turn up.
+function pollRanksFor(week) {
+  const m = new Map();
+  computePoll(weekBallots(week)).rows.slice(0, 25).forEach((r, i) => m.set(r.id, i + 1));
+  return m;
+}
+
+// Everything tied at the top counts — two teams both up 6 spots are both the
+// biggest riser, and picking one of them arbitrarily would be a lie.
+function tiedLeaders(list, cap = 3) {
+  if (!list.length) return [];
+  const best = Math.abs(list[0].delta);
+  return list.filter((m) => Math.abs(m.delta) === best).slice(0, cap);
+}
+
+function computeMovers(week = viewWeek) {
+  const prev = prevPolledWeek(week);
+  if (!prev) return null;
+  const now = pollRanksFor(week);
+  const then = pollRanksFor(prev);
+  if (!now.size || !then.size) return null;
+
+  const entered = [];
+  const moved = [];
+  for (const [id, rank] of now) {
+    const was = then.get(id);
+    if (was === undefined) entered.push({ id, rank });
+    else if (was !== rank) moved.push({ id, rank, was, delta: was - rank });
+  }
+  entered.sort((a, b) => a.rank - b.rank);
+
+  const byMove = (dir) =>
+    moved
+      .filter((m) => (dir > 0 ? m.delta > 0 : m.delta < 0))
+      .sort((a, b) => dir * (b.delta - a.delta) || a.rank - b.rank);
+
+  return { prev, entered, risers: tiedLeaders(byMove(1)), fallers: tiedLeaders(byMove(-1)) };
+}
+
+const MAX_NEW_SHOWN = 5;
+
+function moverHTML(id, detail) {
+  const t = TEAM_MAP[id];
+  return `<div class="mover">
+    ${helmetSVG(t, 32)}
+    <div class="mover-info"><b>${t.school}</b><span>${detail}</span></div>
+  </div>`;
+}
+
+function moverCardHTML(cls, title, items, empty) {
+  return `<div class="mover-card ${cls}">
+    <div class="mover-title">${title}</div>
+    ${items.length ? items.join('') : `<div class="mover-none">${empty}</div>`}
+  </div>`;
+}
+
+function renderMovers() {
+  const wrap = $('#pollMovers');
+  const m = computeMovers();
+  if (!m) {
+    // The first week with ballots has nothing behind it to measure against.
+    wrap.innerHTML = '';
+    wrap.classList.add('hidden');
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  const shown = m.entered.slice(0, MAX_NEW_SHOWN);
+  const extra = m.entered.length - shown.length;
+  const newItems = shown.map((e) => moverHTML(e.id, `entered at #${e.rank}`));
+  if (extra > 0) newItems.push(`<div class="mover-none">+${extra} more</div>`);
+
+  wrap.innerHTML = `
+    <div class="movers-head">Movement since <b>${m.prev}</b></div>
+    <div class="movers-grid">
+      ${moverCardHTML('new', '✨ New to the poll', newItems, 'Nobody new — same 25 teams.')}
+      ${moverCardHTML(
+        'riser',
+        '▲ Biggest riser',
+        m.risers.map((e) => moverHTML(e.id, `#${e.was} → #${e.rank} <i class="up">▲${e.delta}</i>`)),
+        'Nobody moved up.'
+      )}
+      ${moverCardHTML(
+        'faller',
+        '▼ Biggest faller',
+        m.fallers.map((e) => moverHTML(e.id, `#${e.was} → #${e.rank} <i class="down">▼${-e.delta}</i>`)),
+        'Nobody moved down.'
+      )}
+    </div>`;
+}
+
 function renderPoll() {
   const ballots = weekBallots();
   const { rows, voters } = computePoll(ballots);
@@ -411,6 +516,8 @@ function renderPoll() {
       ranking.length < 25 ? `${user} (${ranking.length}/25)` : user;
     votersWrap.appendChild(chip);
   }
+
+  renderMovers();
 
   const list = $('#pollList');
   list.innerHTML = '';

@@ -462,6 +462,68 @@ body.is-dragging .add-cue { opacity: 0; }
 }
 .voter-chip.partial { border-style: dashed; }
 
+/* ---------- week-to-week movement ---------- */
+.movers { margin-bottom: 16px; }
+.movers-head {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+.movers-head b { color: var(--text); }
+
+.movers-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.mover-card {
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.mover-card.new { border-left-color: var(--tnt); }
+.mover-card.riser { border-left-color: var(--green); }
+.mover-card.faller { border-left-color: var(--danger); }
+
+.mover-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.mover {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.mover + .mover { margin-top: 8px; }
+.mover-info { min-width: 0; }
+.mover-info b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mover-info span {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.mover-info span i { font-style: normal; font-weight: 800; }
+.mover-info span i.up { color: var(--green); }
+.mover-info span i.down { color: var(--danger); }
+.mover-none { font-size: 11.5px; color: var(--text-dim); font-style: italic; }
+
 .poll-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 
 .poll-row {
@@ -1169,6 +1231,9 @@ body.week-locked .ballot-actions .ghost-btn { display: none; }
   .ranking-panel, .pool-panel, .poll-panel, .playoff-panel,
   .reveal-card, .ballot-card { padding: 12px; }
   .panel-head h2 { font-size: 15px; }
+
+  /* Three movement cards side by side leaves no room for a school name. */
+  .movers-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 
   /* Team pool: three across instead of two, so less scrolling. */
   .team-pool {

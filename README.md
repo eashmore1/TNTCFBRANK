@@ -27,6 +27,14 @@ live the moment anyone changes their ballot.
 - **TNT Ranking (AP-style scoring)** — a #1 vote is worth 25 points, #25 is
   worth 1. Points are summed across all ballots; first-place votes are shown
   in parentheses, and teams outside the top 25 land in "Also receiving votes."
+- **What changed this week** — every week's ranking is topped by **New to the
+  poll**, **Biggest riser** and **Biggest faller**, measured against the most
+  recent earlier week anybody voted in (so a week nobody ranked is stepped
+  over rather than wiping out the comparison). Risers and fallers are teams
+  ranked in *both* weeks — a team that fell out of the top 25 has no new rank
+  to measure the fall against, so it shows up by its absence rather than as a
+  faller. Ties are all shown: two teams both up six spots are both the biggest
+  riser.
 - **AP / Coaches poll tab** — the real national polls next to ours. Flip
   between the **AP Top 25** and the **US LBM Coaches Poll** for the week you're
   viewing; each team shows its points, first-place votes, and how far off the
