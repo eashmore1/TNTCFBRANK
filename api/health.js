@@ -14,6 +14,27 @@ module.exports = async (req, res) => {
     persistent: mode !== 'memory',
   };
 
+  // Which of the variables we look for are actually present, plus the names
+  // of anything storage-shaped that is set — so a typo or a variable added to
+  // the wrong environment shows up instead of having to be guessed at.
+  // Names only. Values are never reported.
+  const wanted = [
+    'KV_REST_API_URL',
+    'KV_REST_API_TOKEN',
+    'UPSTASH_REDIS_REST_URL',
+    'UPSTASH_REDIS_REST_TOKEN',
+    'GIST_ID',
+    'GIST_TOKEN',
+    'FIREBASE_DB_URL',
+    'FIREBASE_DB_SECRET',
+    'FIREBASE_SERVICE_ACCOUNT',
+  ];
+  out.envFound = wanted.filter((k) => (process.env[k] || '').trim());
+  out.envMissing = wanted.filter((k) => !(process.env[k] || '').trim());
+  out.otherStorageLookingVars = Object.keys(process.env)
+    .filter((k) => /UPSTASH|REDIS|KV_|FIREBASE|GIST/i.test(k) && !wanted.includes(k))
+    .sort();
+
   if (mode === 'memory') {
     out.problem =
       'No database is configured, so ballots are held in memory: they are lost ' +
