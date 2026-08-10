@@ -19,6 +19,11 @@ live the moment anyone changes their ballot.
   user submits one ballot per week, and there's a TNT Ranking for every week.
   A "Copy previous week" button pre-fills your ballot so you only have to move
   what changed.
+- **Weeks close on time** — a week's ballot locks the moment the next week's
+  games kick off, so nobody rewrites history after seeing how it turned out.
+  Closed weeks show as a plain final list with a 🔒 in the week picker; the
+  open week shows its deadline. The server refuses late writes, so the
+  deadline is real rather than a suggestion.
 - **TNT Ranking (AP-style scoring)** — a #1 vote is worth 25 points, #25 is
   worth 1. Points are summed across all ballots; first-place votes are shown
   in parentheses, and teams outside the top 25 land in "Also receiving votes."
@@ -38,12 +43,15 @@ live the moment anyone changes their ballot.
   seeds get first-round byes; seeds 5–12 play in the first round. Since there
   are no game results, a conference's "champion" is proxied by its
   highest-ranked team. Updates the instant the ranking changes.
-- **Preseason predictions (locked until kickoff)** — a separate tab where each
-  person makes two calls before the season starts: (1) the two teams they think
-  meet in each of the ten FBS conference championship games plus the winner, and
-  (2) a full 12-team playoff prediction — seed your own field, then tap a team in
-  each game to advance them all the way to a national champion (bye slots,
-  reseeding and downstream games update automatically). **Your picks stay
+- **Preseason predictions (locked until kickoff)** — a separate tab, split into
+  three sub-tabs, where each person makes their calls before the season starts:
+  (1) the two teams they think meet in each of the ten FBS conference
+  championship games plus the winner, (2) a full 12-team playoff prediction —
+  seed your own field, then tap a team in each game to advance them all the way
+  to a national champion (bye slots, reseeding and downstream games update
+  automatically), and (3) the **Heisman**, picked off the preseason odds board
+  (~50 players, longest shots last; the board lives in `public/heisman.js` and
+  is hand-entered, so it's easy to update). **Your picks stay
   completely private** — nobody can see anyone else's until they all lock the
   moment the first game kicks off (Aug 29, 2026). Until then a live countdown
   shows how long is left and who has already locked in (names only, never their

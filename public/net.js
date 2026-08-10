@@ -228,7 +228,11 @@
         staleRev(state.rev); // our own write — always the newest, so record it
         lastBallotsJSON = JSON.stringify(state.ballots);
         fire('state', state);
-        fire('saveResult', { what: 'ballot', ok: true });
+        fire('saveResult', {
+          what: 'ballot',
+          ok: !state.rejected,
+          reason: state.rejected,
+        });
       } catch (err) {
         console.error('[tnt] ballot save failed:', err.message);
         fire('saveResult', { what: 'ballot', ok: false, error: err.message });

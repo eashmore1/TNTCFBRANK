@@ -13,6 +13,8 @@ let lastSavedJSON = null;
 // editor — otherwise a poll landing mid-save repaints your list from the
 // server's older copy and the teams you just ranked vanish off the screen.
 let ballotDirty = false;
+// When each week's ballot closes, from the server. Populated on 'init'.
+let weekLocks = {};
 let lastDragEnd = 0; // suppresses the click that fires at the end of a drag
 
 const $ = (sel) => document.querySelector(sel);
@@ -52,10 +54,34 @@ function showToast(msg, ms = 2600) {
   showToast._timer = setTimeout(() => t.classList.add('hidden'), ms);
 }
 
+/* ============ weekly ballot deadlines ============ */
+
+// A week's ballot closes when the next week's games kick off, so you can't go
+// back and rewrite history once the season has moved past it. The server
+// enforces it; this is what makes the page explain itself.
+function weekLockTsFor(week = viewWeek) {
+  const ts = weekLocks[week];
+  return Number.isFinite(ts) ? ts : null;
+}
+
+function isWeekLocked(week = viewWeek) {
+  const ts = weekLockTsFor(week);
+  return ts !== null && serverNow() >= ts;
+}
+
+function fmtDeadline(ts) {
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 /* ============ saving ============ */
 
 let saveTimer = null;
 function scheduleSave() {
+  if (isWeekLocked()) return; // closed weeks are final
   ballotDirty = true;
   $('#saveStatus').textContent = 'Saving…';
   $('#saveStatus').classList.add('saving');
@@ -152,24 +178,65 @@ function updateEditorMeta() {
   $('#copyPrevBtn').classList.toggle('hidden', WEEKS.indexOf(viewWeek) === 0);
 }
 
+// A closed week is shown as a plain, final list — no grip, no arrows, no ✕.
+function lockedRowHTML(team, i) {
+  return `<li class="ranked-item locked" data-id="${team.id}">
+    <span class="locked-rank">${i + 1}</span>
+    ${helmetSVG(team, 46)}
+    <div class="ranked-info">
+      <div class="school">${team.school}</div>
+      <div class="mascot">${team.mascot}</div>
+    </div>
+  </li>`;
+}
+
+function renderWeekLockBar() {
+  const bar = $('#weekLockBar');
+  const ts = weekLockTsFor();
+  if (ts === null) {
+    bar.classList.add('hidden');
+    return;
+  }
+  if (isWeekLocked()) {
+    bar.className = 'lock-bar locked';
+    bar.innerHTML = `<span class="lock-ico">🔒</span><b>${viewWeek} is final.</b>
+      Ballots closed ${fmtDeadline(ts)}, when the next week's games kicked off.`;
+  } else {
+    bar.className = 'lock-bar';
+    bar.innerHTML = `<span class="lock-ico">✏️</span>Your <b>${viewWeek}</b> ballot is
+      open until <b>${fmtDeadline(ts)}</b> — it locks when the next week's games start.`;
+  }
+}
+
 function renderEditor() {
   const ranking = myBallot();
+  const locked = isWeekLocked();
+
+  document.body.classList.toggle('week-locked', locked);
+  renderWeekLockBar();
 
   // One innerHTML write per list instead of ~150 appendChild calls — this is
   // what stops the pool from stuttering in as helmets are added one by one.
-  rankingList.innerHTML = ranking
-    .filter((id) => TEAM_MAP[id])
-    .map((id) => rankedRowHTML(TEAM_MAP[id]))
-    .join('');
+  const teams = ranking.filter((id) => TEAM_MAP[id]);
+  rankingList.innerHTML = locked
+    ? teams.map((id, i) => lockedRowHTML(TEAM_MAP[id], i)).join('')
+    : teams.map((id) => rankedRowHTML(TEAM_MAP[id])).join('');
 
-  const rankedSet = new Set(ranking);
-  const rest = TEAMS.filter((t) => !rankedSet.has(t.id)).sort((a, b) =>
-    a.school.localeCompare(b.school)
-  );
-  teamPool.innerHTML = rest.map(teamCardHTML).join('');
+  // Nothing can be added to a closed week, so the pool would only be a tease.
+  $('.pool-panel').classList.toggle('hidden', locked);
+  $('.legend').classList.toggle('hidden', locked);
+  if (!locked) {
+    const rankedSet = new Set(ranking);
+    const rest = TEAMS.filter((t) => !rankedSet.has(t.id)).sort((a, b) =>
+      a.school.localeCompare(b.school)
+    );
+    teamPool.innerHTML = rest.map(teamCardHTML).join('');
+    applyPoolFilters();
+  }
+
+  if (sortables) for (const s of sortables) s.option('disabled', locked);
 
   lastSavedJSON = JSON.stringify(ranking);
-  applyPoolFilters();
   updateEditorMeta();
 }
 
@@ -209,6 +276,8 @@ function renderConfChips() {
 
 /* ============ drag & drop ============ */
 
+let sortables = null;
+
 function initSortables() {
   const shared = {
     group: 'teams',
@@ -229,7 +298,7 @@ function initSortables() {
     },
   };
 
-  Sortable.create(rankingList, {
+  const rankSortable = Sortable.create(rankingList, {
     ...shared,
     onMove(evt) {
       // Cap the ballot at 25 when dragging in from the pool.
@@ -248,7 +317,7 @@ function initSortables() {
     onRemove() { afterEditorChange(); },
   });
 
-  Sortable.create(teamPool, {
+  const poolSortable = Sortable.create(teamPool, {
     ...shared,
     sort: false, // pool stays alphabetical
     onAdd(evt) {
@@ -257,6 +326,9 @@ function initSortables() {
       afterEditorChange();
     },
   });
+
+  sortables = [rankSortable, poolSortable];
+  for (const s of sortables) s.option('disabled', isWeekLocked());
 }
 
 function afterEditorChange() {
@@ -671,13 +743,22 @@ let lastSavedPredJSON = null;
 let predDirty = false;
 let lockTicker = null;
 
+const PRED_SUBTABS = [
+  { id: 'titles', label: '🏈 Conference Titles' },
+  { id: 'playoff', label: '🏆 Playoff' },
+  { id: 'heisman', label: '🥇 Heisman' },
+];
+let predSubTab = localStorage.getItem('tnt-predtab') || 'titles';
+if (!PRED_SUBTABS.some((t) => t.id === predSubTab)) predSubTab = 'titles';
+
 function emptyPrediction() {
-  return { confChamps: {}, playoff: { seeds: new Array(12).fill(null), winners: {} } };
+  return { confChamps: {}, playoff: { seeds: new Array(12).fill(null), winners: {} }, heisman: null };
 }
 
 function normalizePrediction(p) {
   const out = emptyPrediction();
   if (!p || typeof p !== 'object') return out;
+  out.heisman = p.heisman || null;
   if (p.confChamps && typeof p.confChamps === 'object') {
     for (const conf of TITLE_CONFS) {
       const c = p.confChamps[conf];
@@ -943,9 +1024,66 @@ function renderPlayoffEditor() {
   </div>`;
 }
 
-function renderPredEditor() {
-  $('#predEditor').innerHTML = renderConfChampEditor() + renderPlayoffEditor();
+/* ---------- Heisman ---------- */
+
+function heismanRow(p, i, opts = {}) {
+  const t = p.team && TEAM_MAP[p.team];
+  const picked = myPrediction.heisman === p.id;
+  return `<button type="button" class="heis-row${picked ? ' picked' : ''}" data-heisman="${p.id}"${
+    opts.static ? ' disabled' : ''
+  }>
+    <span class="heis-no">${i + 1}</span>
+    <span class="heis-helmet">${t ? helmetSVG(t, 38) : '<span class="heis-nohelmet">🏈</span>'}</span>
+    <span class="heis-name">
+      <b>${p.name}</b>
+      <span>${[p.pos, t ? t.school : ''].filter(Boolean).join(' · ') || 'Team TBD'}</span>
+    </span>
+    <span class="heis-odds">${p.odds}</span>
+    ${picked ? '<span class="heis-check">✓</span>' : ''}
+  </button>`;
 }
+
+function renderHeismanEditor() {
+  const pick = myPrediction.heisman && HEISMAN_MAP[myPrediction.heisman];
+  const t = pick && pick.team && TEAM_MAP[pick.team];
+  return `<section class="predict-section">
+    <h3 class="predict-h">🥇 Heisman Trophy</h3>
+    <p class="predict-sub">Pick who wins it. Odds are the preseason board, longest
+      shots last — tap a name to pick, tap it again to clear.</p>
+    <div class="heis-pick">${
+      pick
+        ? `${t ? helmetSVG(t, 40) : '<span class="heis-nohelmet big">🏈</span>'}
+           <div><b>${pick.name}</b><span>your pick · ${pick.odds}</span></div>`
+        : '<span class="rv-none">No pick yet</span>'
+    }</div>
+    <div class="heis-list">${HEISMAN_ODDS.map((p, i) => heismanRow(p, i)).join('')}</div>
+  </section>`;
+}
+
+function renderPredSubTabs() {
+  $('#predSubTabs').innerHTML = PRED_SUBTABS.map(
+    (t) =>
+      `<button type="button" class="sub-tab${t.id === predSubTab ? ' active' : ''}" data-subtab="${t.id}">${t.label}</button>`
+  ).join('');
+}
+
+function renderPredEditor() {
+  renderPredSubTabs();
+  const panes = {
+    titles: renderConfChampEditor,
+    playoff: renderPlayoffEditor,
+    heisman: renderHeismanEditor,
+  };
+  $('#predEditor').innerHTML = (panes[predSubTab] || panes.titles)();
+}
+
+$('#predSubTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.sub-tab');
+  if (!btn) return;
+  predSubTab = btn.dataset.subtab;
+  localStorage.setItem('tnt-predtab', predSubTab);
+  renderPredEditor();
+});
 
 /* ---- reveal (locked) ---- */
 
@@ -972,8 +1110,19 @@ function revealCard(user, pred) {
     .map((id, i) => (id && TEAM_MAP[id] ? `<span class="rv-seed" title="${TEAM_MAP[id].school}"><b>${i + 1}</b>${helmetSVG(TEAM_MAP[id], 22)}</span>` : ''))
     .join('');
 
+  const heis = p.heisman && HEISMAN_MAP[p.heisman];
+  const heisTeam = heis && heis.team && TEAM_MAP[heis.team];
+
   return `<div class="reveal-card${user === me ? ' mine' : ''}">
     <h3>${user === me ? `${user} (you)` : user}</h3>
+    <div class="rv-sec">
+      <h4>Heisman</h4>
+      <div class="rv-champ">${
+        heis
+          ? `${heisTeam ? helmetSVG(heisTeam, 34) : '<span class="heis-nohelmet">🏈</span>'}<b>${heis.name}</b><span class="rv-odds">${heis.odds}</span>`
+          : '<span class="rv-none">No pick</span>'
+      }</div>
+    </div>
     <div class="rv-sec">
       <h4>Conference Champions</h4>
       <div class="rv-cc-grid">${ccItems}</div>
@@ -1008,9 +1157,12 @@ function renderPredictions() {
   const revealEl = $('#predReveal');
   const saveEl = $('#predSave');
 
+  const subTabsEl = $('#predSubTabs');
+
   if (predLocked) {
     loginEl.classList.add('hidden');
     editorEl.innerHTML = '';
+    subTabsEl.innerHTML = '';
     saveEl.textContent = '';
     renderPredReveal();
     return;
@@ -1020,6 +1172,7 @@ function renderPredictions() {
   if (!me) {
     loginEl.classList.remove('hidden');
     editorEl.innerHTML = '';
+    subTabsEl.innerHTML = '';
     saveEl.textContent = '';
     return;
   }
@@ -1069,6 +1222,13 @@ $('#predEditor').addEventListener('click', (e) => {
     }
     return;
   }
+  const heis = e.target.closest('.heis-row');
+  if (heis) {
+    myPrediction.heisman = myPrediction.heisman === heis.dataset.heisman ? null : heis.dataset.heisman;
+    schedulePredSave();
+    renderPredEditor();
+    return;
+  }
   const slot = e.target.closest('.slot.pickable');
   if (slot) {
     const game = slot.dataset.game;
@@ -1089,7 +1249,7 @@ function renderWeekSelect() {
   for (const w of WEEKS) {
     const opt = document.createElement('option');
     opt.value = w;
-    opt.textContent = w;
+    opt.textContent = isWeekLocked(w) ? `${w} 🔒` : w;
     if (w === viewWeek) opt.selected = true;
     sel.appendChild(opt);
   }
@@ -1162,7 +1322,8 @@ function loginAs(name) {
 
 /* ============ socket ============ */
 
-socket.on('init', ({ weeks, state: s, lockTs, now }) => {
+socket.on('init', ({ weeks, state: s, lockTs, now, weekLocks: wl }) => {
+  if (wl && typeof wl === 'object') weekLocks = wl;
   const firstLoad = state === null;
   WEEKS = weeks;
   state = s;
@@ -1227,20 +1388,26 @@ socket.on('predStatus', ({ locked, submittedUsers }) => {
 
 // The transport tells us whether a save actually reached the server, so the
 // status line can stop guessing.
-socket.on('saveResult', ({ what, ok }) => {
+socket.on('saveResult', ({ what, ok, reason }) => {
   const el = what === 'prediction' ? $('#predSave') : $('#saveStatus');
   if (!el) return;
   el.classList.toggle('saving', !ok);
   el.classList.toggle('failed', !ok);
-  el.textContent = ok ? 'Saved ✓' : 'Not saved ✕';
-  if (!ok) {
-    showToast(
-      what === 'prediction'
-        ? "Couldn't save your predictions — check your connection."
-        : "Couldn't save your ballot — check your connection. Don't close this tab.",
-      6000
-    );
+  el.textContent = ok ? 'Saved ✓' : reason === 'week-locked' ? 'Closed 🔒' : 'Not saved ✕';
+  if (ok) return;
+
+  if (reason === 'week-locked') {
+    // The deadline passed while this tab was open. Repaint as final.
+    showToast(`${viewWeek} closed — that ballot is final now.`, 6000);
+    renderEditor();
+    return;
   }
+  showToast(
+    what === 'prediction'
+      ? "Couldn't save your predictions — check your connection."
+      : "Couldn't save your ballot — check your connection. Don't close this tab.",
+    6000
+  );
 });
 
 socket.on('state', (s) => {
@@ -1318,7 +1485,7 @@ function removeRanked(li) {
 // Handle the ✕ (remove) and ▲/▼ (reorder) buttons on ranked rows.
 rankingList.addEventListener('click', (e) => {
   const li = e.target.closest('.ranked-item');
-  if (!li) return;
+  if (!li || isWeekLocked()) return;
 
   if (e.target.closest('.remove-btn')) {
     removeRanked(li);
@@ -1345,7 +1512,7 @@ rankingList.addEventListener('click', (e) => {
 // click that browsers fire at the end of a drag so it never double-adds.
 teamPool.addEventListener('click', (e) => {
   const card = e.target.closest('.team-card');
-  if (!card) return;
+  if (!card || isWeekLocked()) return;
   if (Date.now() - lastDragEnd < 250) return;
   if (rankingList.children.length >= 25) {
     showToast('Your ballot is full — remove a team first (max 25)');
@@ -1359,6 +1526,7 @@ teamPool.addEventListener('click', (e) => {
 });
 
 $('#copyPrevBtn').addEventListener('click', () => {
+  if (isWeekLocked()) return showToast(`${viewWeek} is final — its ballots are closed.`);
   const idx = WEEKS.indexOf(viewWeek);
   if (idx <= 0) return;
   const prev = WEEKS[idx - 1];
@@ -1380,6 +1548,7 @@ $('#copyPrevBtn').addEventListener('click', () => {
 });
 
 $('#clearBtn').addEventListener('click', () => {
+  if (isWeekLocked()) return showToast(`${viewWeek} is final — its ballots are closed.`);
   if (!editorRanking().length) return;
   if (!confirm(`Clear your entire ${viewWeek} ballot?`)) return;
   if (state.ballots[viewWeek]) delete state.ballots[viewWeek][me];
