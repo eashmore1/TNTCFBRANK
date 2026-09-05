@@ -27,6 +27,9 @@ live the moment anyone changes their ballot.
 - **TNT Ranking (AP-style scoring)** — a #1 vote is worth 25 points, #25 is
   worth 1. Points are summed across all ballots; first-place votes are shown
   in parentheses, and teams outside the top 25 land in "Also receiving votes."
+  Only a finished Top 25 counts — a ballot with spots still open doesn't
+  affect the ranking (or the playoff seeding) until every slot is filled, so
+  a team's total never depends on how many people are still mid-ballot.
 - **What changed this week** — every week's ranking is topped by **New to the
   poll**, **Biggest riser** and **Biggest faller**, measured against the most
   recent earlier week anybody voted in (so a week nobody ranked is stepped

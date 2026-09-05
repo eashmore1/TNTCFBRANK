@@ -369,7 +369,9 @@ function computePoll(ballots) {
   const agg = {}; // id -> { pts, firsts, rankSum, votes }
   let voters = 0;
   for (const ranking of Object.values(ballots)) {
-    if (!ranking.length) continue;
+    // A ballot only counts once it's a full Top 25 — otherwise a team's total
+    // would depend on how many people happened to still be filling theirs out.
+    if (ranking.length !== 25) continue;
     voters++;
     ranking.forEach((id, i) => {
       if (!TEAM_MAP[id]) return;
@@ -400,7 +402,7 @@ function computePoll(ballots) {
 function prevPolledWeek(week = viewWeek) {
   for (let i = WEEKS.indexOf(week) - 1; i >= 0; i--) {
     const b = state.ballots[WEEKS[i]];
-    if (b && Object.values(b).some((r) => r.length)) return WEEKS[i];
+    if (b && Object.values(b).some((r) => r.length === 25)) return WEEKS[i];
   }
   return null;
 }
@@ -500,10 +502,16 @@ function renderMovers() {
 function renderPoll() {
   const ballots = weekBallots();
   const { rows, voters } = computePoll(ballots);
+  const submitted = Object.values(ballots).filter((r) => r.length).length;
+  const partial = submitted - voters;
 
   $('#pollWeekLabel').textContent = `· ${viewWeek}`;
   $('#pollMeta').textContent = voters
-    ? `${voters} ballot${voters === 1 ? '' : 's'} counted · #1 = 25 pts`
+    ? `${voters} ballot${voters === 1 ? '' : 's'} counted · #1 = 25 pts${
+        partial > 0 ? ` · ${partial} more still filling out their Top 25` : ''
+      }`
+    : partial > 0
+    ? `${partial} ballot${partial === 1 ? '' : 's'} started, but none complete yet`
     : '';
 
   const votersWrap = $('#pollVoters');
@@ -522,7 +530,9 @@ function renderPoll() {
   const list = $('#pollList');
   list.innerHTML = '';
   if (!rows.length) {
-    list.innerHTML = `<div class="poll-empty">No ballots for ${viewWeek} yet.<br>Be the first — head to <b>My Ballot</b> and start dragging helmets! 🧨</div>`;
+    list.innerHTML = partial > 0
+      ? `<div class="poll-empty">${partial} ballot${partial === 1 ? '' : 's'} started for ${viewWeek}, but none finished yet.<br>The TNT Ranking needs a full Top 25 to count a ballot. 🧨</div>`
+      : `<div class="poll-empty">No ballots for ${viewWeek} yet.<br>Be the first — head to <b>My Ballot</b> and start dragging helmets! 🧨</div>`;
     $('#alsoReceiving').innerHTML = '';
     return;
   }
