@@ -70,6 +70,12 @@ function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 }
 
+// A team with no entry in records.js just shows nothing rather than a false "0-0".
+function recordBadge(id) {
+  const r = TEAM_RECORDS[id];
+  return r ? `<span class="record">${r}</span>` : '';
+}
+
 function showToast(msg, ms = 2600) {
   const t = $('#toast');
   t.textContent = msg;
@@ -128,7 +134,7 @@ function rankedItemHTML(team) {
     ${helmetSVG(team, 46)}
     <div class="ranked-info">
       <div class="school">${team.school}</div>
-      <div class="mascot">${team.mascot}</div>
+      <div class="mascot">${team.mascot}${recordBadge(team.id)}</div>
     </div>
     <div class="rank-controls">
       <button class="move-btn move-up" title="Move up" aria-label="Move up">▲</button>
@@ -146,7 +152,7 @@ function teamCardHTML(team) {
     <span class="add-cue" aria-hidden="true">＋</span>
     ${helmetSVG(team, 66)}
     <div class="school">${team.school}</div>
-    <div class="mascot">${team.mascot}</div>
+    <div class="mascot">${team.mascot}${recordBadge(team.id)}</div>
   </div>`;
 }
 
@@ -209,7 +215,7 @@ function lockedRowHTML(team, i) {
     ${helmetSVG(team, 46)}
     <div class="ranked-info">
       <div class="school">${team.school}</div>
-      <div class="mascot">${team.mascot}</div>
+      <div class="mascot">${team.mascot}${recordBadge(team.id)}</div>
     </div>
   </li>`;
 }
@@ -548,7 +554,7 @@ function renderPoll() {
         <div class="school">${t.school}${
           row.firsts ? `<span class="firsts">(${row.firsts})</span>` : ''
         }</div>
-        <div class="mascot">${t.mascot}</div>
+        <div class="mascot">${t.mascot}${recordBadge(t.id)}</div>
       </div>
       <div class="points">
         <span class="pts">${row.pts} pts</span>
@@ -640,7 +646,7 @@ function renderNationalPoll() {
       ${helmetSVG(t, 52)}
       <div class="poll-info">
         <div class="school">${t.school}${firsts ? `<span class="firsts">(${firsts})</span>` : ''}</div>
-        <div class="mascot">${t.mascot}</div>
+        <div class="mascot">${t.mascot}${recordBadge(t.id)}</div>
       </div>
       <div class="points">
         <span class="pts">${pts.toLocaleString()}</span>
@@ -833,7 +839,7 @@ function renderBallotsGrid() {
         return `<li><span class="n">${i + 1}.</span>${helmetSVG(
           t,
           26
-        )}<span class="nm">${t.school}</span></li>`;
+        )}<span class="nm">${t.school}</span>${recordBadge(t.id)}</li>`;
       })
       .join('');
     card.innerHTML = `
