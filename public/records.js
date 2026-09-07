@@ -78,7 +78,7 @@ const TEAM_RECORDS = {
   michigan: '1-0',
   rutgers: '0-1',
   washington: '1-0',
-  wisconsin: '0-0',
+  wisconsin: '0-1',
 
   // Conference USA
   'kennesaw-state': '1-0',
@@ -90,7 +90,7 @@ const TEAM_RECORDS = {
   liberty: '0-1',
   fiu: '0-1',
   'missouri-state': '0-1',
-  'middle-tenn': '0-0',
+  'middle-tenn': '1-0',
 
   // FBS Independents
   uconn: '1-0',
@@ -129,7 +129,7 @@ const TEAM_RECORDS = {
   'utah-state': '0-1',
   'texas-state': '0-1',
   'fresno-state': '0-1',
-  'washington-state': '0-0',
+  'washington-state': '0-1',
 
   // SEC
   florida: '1-0',
