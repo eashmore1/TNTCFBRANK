@@ -77,7 +77,7 @@ const TEAM_RECORDS = {
   'michigan-state': '1-0',
   michigan: '1-0',
   rutgers: '0-1',
-  washington: '0-0',
+  washington: '1-0',
   wisconsin: '0-0',
 
   // Conference USA
@@ -94,7 +94,7 @@ const TEAM_RECORDS = {
 
   // FBS Independents
   uconn: '1-0',
-  'notre-dame': '0-0',
+  'notre-dame': '1-0',
 
   // MAC
   'eastern-michigan': '1-1',
