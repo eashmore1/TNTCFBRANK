@@ -14,7 +14,7 @@ const TEAM_RECORDS = {
   syracuse: '1-0',
   pittsburgh: '1-0',
   'wake-forest': '1-0',
-  'florida-state': '1-0',
+  'florida-state': '1-1',
   duke: '1-0',
   'north-carolina': '1-0',
   stanford: '1-1',
@@ -23,8 +23,8 @@ const TEAM_RECORDS = {
   'georgia-tech': '0-1',
   clemson: '0-1',
   'nc-state': '0-1',
-  louisville: '0-0',
-  smu: '0-0',
+  louisville: '0-1',
+  smu: '1-0',
 
   // American
   memphis: '2-0',
@@ -147,7 +147,7 @@ const TEAM_RECORDS = {
   arkansas: '1-0',
   vanderbilt: '1-0',
   auburn: '1-0',
-  'ole-miss': '0-0',
+  'ole-miss': '1-0',
 
   // Sun Belt
   'georgia-state': '1-0',
