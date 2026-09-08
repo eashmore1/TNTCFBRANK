@@ -98,7 +98,7 @@ const NATIONAL_POLLS = {
           ['missouri',     117],
         ],
       },
-      'Week 1': {
+      'Week 2': {
         released: 'Sep 7, 2026',
         voters: 69,
         teams: [
