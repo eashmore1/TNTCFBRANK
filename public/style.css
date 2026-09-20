@@ -10,6 +10,8 @@
   --tnt-soft: rgba(255, 107, 26, 0.14);
   --green: #3ddc84;
   --danger: #ff5964;
+  --blue: #4da3ff;
+  --blue-soft: rgba(77, 163, 255, 0.16);
   --radius: 12px;
   --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
@@ -26,6 +28,8 @@ body.light {
   --tnt-soft: rgba(232, 93, 15, 0.12);
   --green: #0f9d58;
   --danger: #d7263d;
+  --blue: #1c6fd1;
+  --blue-soft: rgba(28, 111, 209, 0.12);
   --shadow: 0 8px 24px rgba(30, 40, 60, 0.1);
 }
 
@@ -1115,12 +1119,26 @@ body.week-locked .ballot-actions .ghost-btn { display: none; }
   color: var(--text-dim); font-weight: 800; font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
-.ballot-card li .nm { font-weight: 600; }
+.ballot-card li .nm { font-weight: 600; flex: 1; min-width: 0; }
 .ballot-card li .record {
   color: var(--text-dim);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+.outlier-legend { margin-bottom: 12px; }
+.outlier-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.outlier-badge.high { color: var(--tnt); background: var(--tnt-soft); }
+.outlier-badge.low { color: var(--blue); background: var(--blue-soft); }
 
 /* ---------- Login ---------- */
 .overlay {

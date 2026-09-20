@@ -816,6 +816,31 @@ function renderPlayoff() {
 
 /* ============ everyone's ballots ============ */
 
+// A team's rank in the aggregate TNT Ranking (1-indexed, uncapped — a team can
+// sit outside the official top 25 and still anchor an outlier comparison).
+function tntRankMap() {
+  const { rows } = computePoll(weekBallots());
+  const m = new Map();
+  rows.forEach((r, i) => m.set(r.id, i + 1));
+  return m;
+}
+
+// How far off consensus a pick has to be before it's worth flagging. Below
+// this, "different opinion" and "outlier" look the same — this is where the
+// line got drawn.
+const OUTLIER_GAP = 7;
+
+// Positive delta = the voter has this team ranked better than the group
+// (overvaluing it); negative = ranked worse (undervaluing it).
+function outlierBadge(personRank, tntRank) {
+  if (tntRank == null) return '';
+  const delta = tntRank - personRank;
+  if (Math.abs(delta) < OUTLIER_GAP) return '';
+  return delta > 0
+    ? `<span class="outlier-badge high" title="Ranked #${personRank} here vs #${tntRank} in the TNT Ranking — ${delta} spots higher">▲ HIGH</span>`
+    : `<span class="outlier-badge low" title="Ranked #${personRank} here vs #${tntRank} in the TNT Ranking — ${-delta} spots lower">▼ LOW</span>`;
+}
+
 function renderBallotsGrid() {
   const grid = $('#ballotsGrid');
   grid.innerHTML = '';
@@ -829,6 +854,8 @@ function renderBallotsGrid() {
     return;
   }
 
+  const rankMap = tntRankMap();
+
   for (const user of users) {
     const card = document.createElement('div');
     card.className = 'ballot-card' + (user === me ? ' mine' : '');
@@ -836,10 +863,14 @@ function renderBallotsGrid() {
       .map((id, i) => {
         const t = TEAM_MAP[id];
         if (!t) return '';
-        return `<li><span class="n">${i + 1}.</span>${helmetSVG(
+        const personRank = i + 1;
+        return `<li><span class="n">${personRank}.</span>${helmetSVG(
           t,
           26
-        )}<span class="nm">${t.school}</span>${recordBadge(t.id)}</li>`;
+        )}<span class="nm">${t.school}</span>${recordBadge(t.id)}${outlierBadge(
+          personRank,
+          rankMap.get(id)
+        )}</li>`;
       })
       .join('');
     card.innerHTML = `
