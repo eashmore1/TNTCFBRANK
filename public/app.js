@@ -818,10 +818,12 @@ function renderPlayoff() {
 
 // A team's rank in the aggregate TNT Ranking (1-indexed, uncapped — a team can
 // sit outside the official top 25 and still anchor an outlier comparison).
-function tntRankMap() {
-  const { rows } = computePoll(weekBallots());
+// Distinct from tntRankMap() above: that one caps at 25 for the national-poll
+// delta badges, this one doesn't, since a ballot can rank a team outside the
+// official top 25 too.
+function outlierRankMap() {
   const m = new Map();
-  rows.forEach((r, i) => m.set(r.id, i + 1));
+  computePoll(weekBallots()).rows.forEach((r, i) => m.set(r.id, i + 1));
   return m;
 }
 
@@ -854,7 +856,7 @@ function renderBallotsGrid() {
     return;
   }
 
-  const rankMap = tntRankMap();
+  const rankMap = outlierRankMap();
 
   for (const user of users) {
     const card = document.createElement('div');
