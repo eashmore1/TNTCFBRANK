@@ -372,7 +372,7 @@ function afterEditorChange() {
 /* ============ TNT poll ============ */
 
 function computePoll(ballots) {
-  const agg = {}; // id -> { pts, firsts, rankSum, votes }
+  const agg = {}; // id -> { pts, firsts, rankSum, votes, high, low }
   let voters = 0;
   for (const ranking of Object.values(ballots)) {
     // A ballot only counts once it's a full Top 25 — otherwise a team's total
@@ -381,11 +381,14 @@ function computePoll(ballots) {
     voters++;
     ranking.forEach((id, i) => {
       if (!TEAM_MAP[id]) return;
-      const a = (agg[id] = agg[id] || { pts: 0, firsts: 0, rankSum: 0, votes: 0 });
+      const rank = i + 1;
+      const a = (agg[id] = agg[id] || { pts: 0, firsts: 0, rankSum: 0, votes: 0, high: rank, low: rank });
       a.pts += 25 - i;
       if (i === 0) a.firsts++;
-      a.rankSum += i + 1;
+      a.rankSum += rank;
       a.votes++;
+      if (rank < a.high) a.high = rank;
+      if (rank > a.low) a.low = rank;
     });
   }
   const rows = Object.entries(agg)
@@ -559,6 +562,7 @@ function renderPoll() {
       <div class="points">
         <span class="pts">${row.pts} pts</span>
         <span class="avg">avg ${row.avg.toFixed(1)}</span>
+        ${row.votes > 1 ? `<span class="range">H #${row.high} &middot; L #${row.low}</span>` : ''}
       </div>`;
     li.querySelector('.rank').textContent = list.children.length + 1;
     list.appendChild(li);
