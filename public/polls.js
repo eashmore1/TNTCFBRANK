@@ -255,7 +255,7 @@ const NATIONAL_POLLS = {
           ['smu',            212],
           ['texas-am',       202],
           ['miss-state',     179],
-          // #25 Houston — points cut off in the paste, add once known
+          ['houston',        127],
         ],
       },
     },
