@@ -371,10 +371,16 @@ function afterEditorChange() {
 
 /* ============ TNT poll ============ */
 
+// Voters whose ballots are kept (visible on Everyone's Ballots, etc.) but
+// excluded from the TNT poll's aggregate math — e.g. someone whose ballot
+// shouldn't count toward the group's ranking. Match is case-insensitive.
+const EXCLUDED_VOTERS = new Set(['dih']);
+
 function computePoll(ballots) {
   const agg = {}; // id -> { pts, firsts, rankSum, votes, high, low }
   let voters = 0;
-  for (const ranking of Object.values(ballots)) {
+  for (const [user, ranking] of Object.entries(ballots)) {
+    if (EXCLUDED_VOTERS.has(user.toLowerCase())) continue;
     // A ballot only counts once it's a full Top 25 — otherwise a team's total
     // would depend on how many people happened to still be filling theirs out.
     if (ranking.length !== 25) continue;
@@ -511,7 +517,11 @@ function renderMovers() {
 function renderPoll() {
   const ballots = weekBallots();
   const { rows, voters } = computePoll(ballots);
-  const submitted = Object.values(ballots).filter((r) => r.length).length;
+  // Same voter set computePoll counts — an excluded voter's full ballot
+  // shouldn't show up here as someone "still filling out their Top 25".
+  const submitted = Object.entries(ballots).filter(
+    ([u, r]) => !EXCLUDED_VOTERS.has(u.toLowerCase()) && r.length
+  ).length;
   const partial = submitted - voters;
 
   $('#pollWeekLabel').textContent = `· ${viewWeek}`;
