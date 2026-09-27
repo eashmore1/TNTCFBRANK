@@ -24,7 +24,7 @@ const TEAM_RECORDS = {
   clemson: '3-1',
   'nc-state': '2-2',
   louisville: '2-2',
-  smu: '2-1',
+  smu: '3-1',
 
   // American
   memphis: '3-1',
@@ -89,7 +89,7 @@ const TEAM_RECORDS = {
   wku: '1-3',
   liberty: '3-1',
   fiu: '2-2',
-  'missouri-state': '1-2',
+  'missouri-state': '1-3',
   'middle-tenn': '2-2',
   'louisiana-tech': '0-2',
 
