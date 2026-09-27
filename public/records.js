@@ -17,10 +17,10 @@ const TEAM_RECORDS = {
   'florida-state': '2-2',
   duke: '4-0',
   'north-carolina': '2-1',
-  stanford: '1-2',
+  stanford: '2-2',
   california: '2-2',
   'boston-college': '2-2',
-  'georgia-tech': '1-2',
+  'georgia-tech': '1-3',
   clemson: '3-1',
   'nc-state': '2-2',
   louisville: '2-2',
@@ -32,7 +32,7 @@ const TEAM_RECORDS = {
   utsa: '3-1',
   navy: '1-2',
   temple: '1-3',
-  rice: '1-2',
+  rice: '1-3',
   tulsa: '3-1',
   usf: '4-0',
   charlotte: '0-4',
@@ -63,7 +63,7 @@ const TEAM_RECORDS = {
   // Big Ten
   usc: '4-1',
   maryland: '2-2',
-  minnesota: '2-1',
+  minnesota: '3-1',
   'ohio-state': '3-1',
   indiana: '4-0',
   nebraska: '4-0',
@@ -77,7 +77,7 @@ const TEAM_RECORDS = {
   'michigan-state': '2-2',
   michigan: '3-1',
   rutgers: '1-3',
-  washington: '3-0',
+  washington: '3-1',
   wisconsin: '3-1',
 
   // Conference USA
@@ -113,9 +113,9 @@ const TEAM_RECORDS = {
 
   // Mountain West
   unlv: '2-2',
-  nevada: '1-2',
+  nevada: '1-3',
   'new-mexico': '3-1',
-  'air-force': '1-1',
+  'air-force': '2-1',
   'san-jose-state': '2-1',
   hawaii: '1-3',
   wyoming: '2-2',
@@ -129,7 +129,7 @@ const TEAM_RECORDS = {
   'oregon-state': '2-2',
   'utah-state': '1-3',
   'texas-state': '2-2',
-  'fresno-state': '2-1',
+  'fresno-state': '3-1',
   'washington-state': '1-3',
 
   // SEC
