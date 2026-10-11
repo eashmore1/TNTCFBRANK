@@ -356,8 +356,10 @@ body.is-dragging .add-cue { opacity: 0; }
 
 /* ---------- Team pool ---------- */
 .pool-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.search-row { display: flex; gap: 8px; }
 .pool-controls input[type="search"] {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -368,6 +370,25 @@ body.is-dragging .add-cue { opacity: 0; }
   transition: border-color 0.15s ease;
 }
 .pool-controls input[type="search"]:focus { border-color: var(--tnt); }
+.pool-sort {
+  flex: 0 0 auto;
+  max-width: 44%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 9px 8px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.pool-sort:focus { border-color: var(--tnt); }
+
+@media (max-width: 640px) {
+  .search-row { flex-wrap: wrap; }
+  .pool-controls input[type="search"] { flex: 1 1 100%; }
+  .pool-sort { flex: 1 1 100%; max-width: none; }
+}
 
 .conf-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .conf-chip {

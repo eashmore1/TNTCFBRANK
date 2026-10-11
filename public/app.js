@@ -7,6 +7,7 @@ let state = null; // { ballots: { [week]: { [user]: [teamId] } } }
 let me = localStorage.getItem('tnt-user') || null;
 let viewWeek = null;
 let activeConf = 'All';
+let poolSort = 'az'; // 'az' | 'za' | 'best' | 'worst'
 let lastSavedJSON = null;
 // True from the moment you change your ballot until the server confirms it
 // back. While it's set, nothing arriving from the server may rebuild the
@@ -74,6 +75,36 @@ function esc(s) {
 function recordBadge(id) {
   const r = TEAM_RECORDS[id];
   return r ? `<span class="record">${r}</span>` : '';
+}
+
+// Win percentage for record sorting, or null for a team with no record yet
+// (kept out of "best"/"worst" ordering rather than counted as 0-0).
+function recordPct(id) {
+  const r = TEAM_RECORDS[id];
+  const m = r && /^(\d+)-(\d+)$/.exec(r);
+  if (!m) return null;
+  const wins = +m[1], losses = +m[2];
+  return wins + losses ? wins / (wins + losses) : 0;
+}
+
+// Comparator for the pool's sort control. Teams with no record sort after
+// teams that have one, in either direction, then fall back to the school name.
+function poolCompare(a, b, mode = poolSort) {
+  if (mode === 'za') return b.school.localeCompare(a.school);
+  if (mode === 'best' || mode === 'worst') {
+    const pa = recordPct(a.id);
+    const pb = recordPct(b.id);
+    if (pa === null && pb === null) return a.school.localeCompare(b.school);
+    if (pa === null) return 1;
+    if (pb === null) return -1;
+    const diff = mode === 'best' ? pb - pa : pa - pb;
+    if (diff !== 0) return diff;
+  }
+  return a.school.localeCompare(b.school);
+}
+
+function sortTeams(list) {
+  return [...list].sort((a, b) => poolCompare(a, b));
 }
 
 function showToast(msg, ms = 2600) {
@@ -187,11 +218,11 @@ function morphToCard(el) {
   return card;
 }
 
-function insertCardAlphabetically(card) {
-  const school = TEAM_MAP[card.dataset.id].school.toLowerCase();
+function insertCardSorted(card) {
+  const team = TEAM_MAP[card.dataset.id];
   for (const other of teamPool.children) {
     if (other === card) continue;
-    if (TEAM_MAP[other.dataset.id].school.toLowerCase() > school) {
+    if (poolCompare(team, TEAM_MAP[other.dataset.id]) < 0) {
       teamPool.insertBefore(card, other);
       return;
     }
@@ -254,14 +285,7 @@ function renderEditor() {
   // Nothing can be added to a closed week, so the pool would only be a tease.
   $('.pool-panel').classList.toggle('hidden', locked);
   $('.legend').classList.toggle('hidden', locked);
-  if (!locked) {
-    const rankedSet = new Set(ranking);
-    const rest = TEAMS.filter((t) => !rankedSet.has(t.id)).sort((a, b) =>
-      a.school.localeCompare(b.school)
-    );
-    teamPool.innerHTML = rest.map(teamCardHTML).join('');
-    applyPoolFilters();
-  }
+  if (!locked) renderPoolCards(ranking);
 
   if (sortables) for (const s of sortables) s.option('disabled', locked);
 
@@ -270,6 +294,15 @@ function renderEditor() {
 }
 
 /* ============ pool filters ============ */
+
+// Rebuild the pool's cards in the current sort order. Called on every
+// editor render and whenever the sort control changes.
+function renderPoolCards(ranking = myBallotOnScreen()) {
+  const rankedSet = new Set(ranking);
+  const rest = sortTeams(TEAMS.filter((t) => !rankedSet.has(t.id)));
+  teamPool.innerHTML = rest.map(teamCardHTML).join('');
+  applyPoolFilters();
+}
 
 function applyPoolFilters() {
   const q = $('#poolSearch').value.trim().toLowerCase();
@@ -348,10 +381,10 @@ function initSortables() {
 
   const poolSortable = Sortable.create(teamPool, {
     ...shared,
-    sort: false, // pool stays alphabetical
+    sort: false, // pool order is driven by poolSort, not drag reordering
     onAdd(evt) {
       const card = morphToCard(evt.item);
-      insertCardAlphabetically(card);
+      insertCardSorted(card);
       afterEditorChange();
     },
   });
@@ -1666,6 +1699,11 @@ $('#weekSelect').addEventListener('change', (e) => switchWeek(e.target.value));
 
 $('#poolSearch').addEventListener('input', applyPoolFilters);
 
+$('#poolSortSelect').addEventListener('change', (e) => {
+  poolSort = e.target.value;
+  renderPoolCards();
+});
+
 $('#loginForm').addEventListener('submit', (e) => {
   e.preventDefault();
   loginAs($('#loginName').value);
@@ -1682,7 +1720,7 @@ function removeRanked(li) {
   const card = makeTeamCard(TEAM_MAP[li.dataset.id]);
   li.remove();
   teamPool.appendChild(card);
-  insertCardAlphabetically(card);
+  insertCardSorted(card);
   applyPoolFilters();
   afterEditorChange();
 }
