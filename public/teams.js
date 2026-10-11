@@ -120,11 +120,12 @@ const TEAMS = [
   { id: 'umass',          school: 'UMass',              mascot: 'Minutemen',        conf: 'MAC', shell: '#881C1C', stripe: '#FFFFFF', mask: '#881C1C', decal: '#FFFFFF', abbr: 'UM' },
   { id: 'western-michigan', school: 'Western Michigan', mascot: 'Broncos',          conf: 'MAC', shell: '#532E1F', stripe: '#F1C500', mask: '#532E1F', decal: '#F1C500', abbr: 'W' },
 
-  // ==== Mountain West (9) ====
+  // ==== Mountain West (10) ====
   { id: 'air-force',      school: 'Air Force',          mascot: 'Falcons',          conf: 'MW', shell: '#0033A0', stripe: '#FFFFFF', mask: '#FFFFFF', decal: '#FFFFFF', abbr: 'AF' },
   { id: 'hawaii',         school: 'Hawaii',             mascot: 'Rainbow Warriors', conf: 'MW', shell: '#024731', stripe: '#FFFFFF', mask: '#024731', decal: '#FFFFFF', abbr: 'H' },
   { id: 'nevada',         school: 'Nevada',             mascot: 'Wolf Pack',        conf: 'MW', shell: '#003366', stripe: '#807F84', mask: '#003366', decal: '#FFFFFF', abbr: 'N' },
   { id: 'new-mexico',     school: 'New Mexico',         mascot: 'Lobos',            conf: 'MW', shell: '#BA0C2F', stripe: '#A7A8AA', mask: '#BA0C2F', decal: '#A7A8AA', abbr: 'NM' },
+  { id: 'north-dakota-state', school: 'North Dakota State', mascot: 'Bison',        conf: 'MW', shell: '#FFC82E', stripe: '#076A4E', mask: '#076A4E', decal: '#FFFFFF', abbr: 'NDSU' },
   { id: 'niu',            school: 'Northern Illinois',  mascot: 'Huskies',          conf: 'MW', shell: '#C8102E', stripe: '#000000', mask: '#000000', decal: '#FFFFFF', abbr: 'NIU' },
   { id: 'san-jose-state', school: 'San Jose State',     mascot: 'Spartans',         conf: 'MW', shell: '#0055A2', stripe: '#E5A823', mask: '#0055A2', decal: '#E5A823', abbr: 'SJ' },
   { id: 'unlv',           school: 'UNLV',               mascot: 'Rebels',           conf: 'MW', shell: '#CF0A2C', stripe: '#A7A8AA', mask: '#000000', decal: '#A7A8AA', abbr: 'U' },
