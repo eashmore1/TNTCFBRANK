@@ -45,7 +45,7 @@ const TEAM_RECORDS = {
   // Big 12
   ucf: '3-3',
   'kansas-state': '3-2',
-  'arizona-state': '2-2',
+  'arizona-state': '3-2',
   utah: '5-0',
   byu: '5-0',
   kansas: '2-3',
@@ -118,7 +118,7 @@ const TEAM_RECORDS = {
   'north-dakota-state': '5-1',
   'air-force': '4-1',
   'san-jose-state': '3-2',
-  hawaii: '1-4',
+  hawaii: '1-5',
   wyoming: '3-3',
   niu: '0-5',
   utep: '1-5',
@@ -126,11 +126,11 @@ const TEAM_RECORDS = {
   // Pac-12
   'san-diego-state': '2-4',
   'colorado-state': '2-3',
-  'boise-state': '4-1',
+  'boise-state': '5-1',
   'oregon-state': '4-2',
   'utah-state': '2-4',
   'texas-state': '2-3',
-  'fresno-state': '4-1',
+  'fresno-state': '4-2',
   'washington-state': '1-5',
 
   // SEC
