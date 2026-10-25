@@ -77,6 +77,16 @@ function recordBadge(id) {
   return r ? `<span class="record">${r}</span>` : '';
 }
 
+// A team with no entry in lastgame.js just shows nothing (no game logged yet).
+function lastGameBadge(id) {
+  const g = LAST_GAME[id];
+  if (!g) return '';
+  const verb = g.result === 'W' ? 'Beat' : 'Lost to';
+  return `<span class="last-game ${g.result === 'W' ? 'win' : 'loss'}" title="${esc(
+    `${verb} ${g.opp} ${g.score}`
+  )}">${g.result} ${g.score}</span>`;
+}
+
 // Win percentage for record sorting, or null for a team with no record yet
 // (kept out of "best"/"worst" ordering rather than counted as 0-0).
 function recordPct(id) {
@@ -165,7 +175,7 @@ function rankedItemHTML(team) {
     ${helmetSVG(team, 46)}
     <div class="ranked-info">
       <div class="school">${team.school}</div>
-      <div class="mascot">${team.mascot}${recordBadge(team.id)}</div>
+      <div class="mascot">${team.mascot}${recordBadge(team.id)}${lastGameBadge(team.id)}</div>
     </div>
     <div class="rank-controls">
       <button class="move-btn move-up" title="Move up" aria-label="Move up">▲</button>
@@ -183,7 +193,7 @@ function teamCardHTML(team) {
     <span class="add-cue" aria-hidden="true">＋</span>
     ${helmetSVG(team, 66)}
     <div class="school">${team.school}</div>
-    <div class="mascot">${team.mascot}${recordBadge(team.id)}</div>
+    <div class="mascot">${team.mascot}${recordBadge(team.id)}${lastGameBadge(team.id)}</div>
   </div>`;
 }
 
@@ -246,7 +256,7 @@ function lockedRowHTML(team, i) {
     ${helmetSVG(team, 46)}
     <div class="ranked-info">
       <div class="school">${team.school}</div>
-      <div class="mascot">${team.mascot}${recordBadge(team.id)}</div>
+      <div class="mascot">${team.mascot}${recordBadge(team.id)}${lastGameBadge(team.id)}</div>
     </div>
   </li>`;
 }
@@ -600,7 +610,7 @@ function renderPoll() {
         <div class="school">${t.school}${
           row.firsts ? `<span class="firsts">(${row.firsts})</span>` : ''
         }</div>
-        <div class="mascot">${t.mascot}${recordBadge(t.id)}</div>
+        <div class="mascot">${t.mascot}${recordBadge(t.id)}${lastGameBadge(t.id)}</div>
       </div>
       <div class="points">
         <span class="pts">${row.pts} pts</span>
@@ -693,7 +703,7 @@ function renderNationalPoll() {
       ${helmetSVG(t, 52)}
       <div class="poll-info">
         <div class="school">${t.school}${firsts ? `<span class="firsts">(${firsts})</span>` : ''}</div>
-        <div class="mascot">${t.mascot}${recordBadge(t.id)}</div>
+        <div class="mascot">${t.mascot}${recordBadge(t.id)}${lastGameBadge(t.id)}</div>
       </div>
       <div class="points">
         <span class="pts">${pts.toLocaleString()}</span>
