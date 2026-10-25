@@ -303,6 +303,7 @@ body.light .login-card button[type="submit"] { color: #ffffff; }
 }
 .mascot .last-game.win { color: var(--green); }
 .mascot .last-game.loss { color: var(--danger); }
+.mascot .last-game.bye { color: var(--text-dim); font-weight: 600; font-style: italic; }
 
 .rank-controls {
   display: flex;

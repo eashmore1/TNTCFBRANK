@@ -81,10 +81,10 @@ function recordBadge(id) {
 function lastGameBadge(id) {
   const g = LAST_GAME[id];
   if (!g) return '';
-  const verb = g.result === 'W' ? 'Beat' : 'Lost to';
-  return `<span class="last-game ${g.result === 'W' ? 'win' : 'loss'}" title="${esc(
-    `${verb} ${g.opp} ${g.score}`
-  )}">${g.result} ${g.score}</span>`;
+  if (g.bye) return `<span class="last-game bye">Bye week</span>`;
+  return `<span class="last-game ${g.result === 'W' ? 'win' : 'loss'}">${g.result} ${
+    g.score
+  } vs ${esc(g.opp)}</span>`;
 }
 
 // Win percentage for record sorting, or null for a team with no record yet
