@@ -408,6 +408,7 @@ function afterEditorChange() {
   scheduleSave();
   renderPoll();
   renderNationalPoll();
+  renderCFP();
   renderPlayoff();
   renderBallotsGrid();
 }
@@ -718,6 +719,39 @@ function renderNationalPoll() {
         .map(([id, pts]) => `${(TEAM_MAP[id] || { school: id }).school} ${pts}`)
         .join(', ')}`
     : '';
+}
+
+// The CFP committee publishes a bare ordered Top 25 — no points, no
+// first-place votes, nothing to switch between — so this is a trimmed
+// version of renderNationalPoll() for a single, simpler list.
+function renderCFP() {
+  const data = CFP_RANKINGS.weeks[viewWeek];
+  const list = $('#cfpList');
+
+  $('#cfpWeekLabel').textContent = `· ${viewWeek}`;
+  $('#cfpMeta').textContent = data && data.released ? `released ${data.released}` : '';
+
+  if (!data) {
+    list.innerHTML = `<div class="poll-empty">The <b>CFP Rankings</b> haven't been released for ${viewWeek} yet.<br>The committee's first Top 25 of the season comes out on a Tuesday in early November.</div>`;
+    return;
+  }
+
+  const tnt = tntRankMap();
+  list.innerHTML = data.teams
+    .map((id, i) => {
+      const t = TEAM_MAP[id];
+      if (!t) return '';
+      return `<li class="poll-row">
+        <span class="rank">${i + 1}</span>
+        ${helmetSVG(t, 52)}
+        <div class="poll-info">
+          <div class="school">${t.school}</div>
+          <div class="mascot">${t.mascot}${recordBadge(t.id)}${lastGameBadge(t.id)}</div>
+        </div>
+        <div class="points">${natDeltaHTML(id, i + 1, tnt)}</div>
+      </li>`;
+    })
+    .join('');
 }
 
 $('#pollSwitch').addEventListener('click', (e) => {
@@ -1518,6 +1552,7 @@ function switchWeek(week) {
   renderEditor();
   renderPoll();
   renderNationalPoll();
+  renderCFP();
   renderPlayoff();
   renderBallotsGrid();
 }
@@ -1551,6 +1586,7 @@ function loginAs(name) {
   renderEditor();
   renderPoll();
   renderNationalPoll();
+  renderCFP();
   renderPlayoff();
   renderBallotsGrid();
   renderPredictions();
@@ -1662,6 +1698,7 @@ socket.on('state', (s) => {
   state = s;
   renderPoll();
   renderNationalPoll();
+  renderCFP();
   renderPlayoff();
   renderBallotsGrid();
   renderKnownUsers();

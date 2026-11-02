@@ -33,6 +33,7 @@
     <button class="tab active" data-tab="ballot">My Ballot</button>
     <button class="tab" data-tab="poll">TNT Ranking</button>
     <button class="tab" data-tab="polls">AP / Coaches</button>
+    <button class="tab" data-tab="cfp">CFP Rankings</button>
     <button class="tab" data-tab="playoff">Playoff</button>
     <button class="tab" data-tab="predict">Predictions</button>
     <button class="tab" data-tab="ballots">Everyone's Ballots</button>
@@ -114,6 +115,18 @@
     </section>
   </main>
 
+  <!-- ============ CFP RANKINGS ============ -->
+  <main id="tab-cfp" class="tab-panel">
+    <section class="poll-panel">
+      <div class="panel-head">
+        <h2>🏈 CFP Rankings <span id="cfpWeekLabel" class="week-label"></span></h2>
+        <span id="cfpMeta" class="poll-meta"></span>
+      </div>
+      <p class="hint">The College Football Playoff selection committee's own Top 25, released Tuesdays once the committee begins meeting in November.</p>
+      <ol id="cfpList" class="poll-list"></ol>
+    </section>
+  </main>
+
   <!-- ============ PLAYOFF ============ -->
   <main id="tab-playoff" class="tab-panel">
     <section class="playoff-panel">
@@ -172,6 +185,7 @@
   <script src="/records.js"></script>
   <script src="/lastgame.js"></script>
   <script src="/polls.js"></script>
+  <script src="/cfp.js"></script>
   <script src="/heisman.js"></script>
   <script src="/app.js"></script>
 </body>
