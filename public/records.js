@@ -73,7 +73,7 @@ const TEAM_RECORDS = {
   illinois: '5-3',
   iowa: '6-2',
   northwestern: '6-2',
-  oregon: '4-3',
+  oregon: '5-3',
   'michigan-state': '2-6',
   michigan: '5-3',
   rutgers: '2-6',
@@ -95,7 +95,7 @@ const TEAM_RECORDS = {
 
   // FBS Independents
   uconn: '4-4',
-  'notre-dame': '6-1',
+  'notre-dame': '7-1',
 
   // MAC
   'eastern-michigan': '4-5',

@@ -18,5 +18,36 @@
    ============================================================ */
 
 const CFP_RANKINGS = {
-  weeks: {},
+  weeks: {
+    'Week 10': {
+      released: 'Nov 3, 2026',
+      teams: [
+        'miami',
+        'georgia',
+        'utah',
+        'indiana',
+        'alabama',
+        'kentucky',
+        'texas',
+        'ucla',
+        'byu',
+        'ole-miss',
+        'notre-dame',
+        'ohio-state',
+        'tennessee',
+        'lsu',
+        'texas-tech',
+        'wake-forest',
+        'houston',
+        'missouri',
+        'iowa',
+        'usc',
+        'south-carolina',
+        'arizona',
+        'oregon',
+        'florida',
+        'boise-state',
+      ],
+    },
+  },
 };
