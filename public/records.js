@@ -66,7 +66,7 @@ const TEAM_RECORDS = {
   minnesota: '5-5',
   'ohio-state': '7-3',
   indiana: '9-1',
-  nebraska: '6-3',
+  nebraska: '6-4',
   'penn-state': '6-4',
   ucla: '10-0',
   purdue: '3-6',
